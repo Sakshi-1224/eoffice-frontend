@@ -1,45 +1,71 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { endpoints } from '../../api/axios'; // Use the new endpoints file
+import { endpoints } from '../../api/axios'; 
 import { useAuth } from '../../context/AuthContext';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { Paperclip, ArrowRight, History, User, Download, FileText, Building2, Briefcase } from 'lucide-react';
+import { 
+  Paperclip, ArrowRight, History, User, Download, FileText, 
+  Upload, Trash2, PlusCircle, PenTool, Building2, Briefcase, 
+  Loader2, ShieldCheck, Lock, AlertTriangle 
+} from 'lucide-react';
 
 const FileDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef(null); 
+  const attachmentInputRef = useRef(null); 
   
   const [data, setData] = useState(null);
   const [users, setUsers] = useState([]); 
-  const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm();
+  
+  const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm({
+    defaultValues: { action: 'FORWARD', receiverId: '' }
+  });
   const selectedAction = watch("action");
 
-  useEffect(() => {
-    // Fetch History and User List for dropdown
+  // Fetch Data
+  const loadData = () => {
     Promise.all([
       endpoints.files.history(id),
       endpoints.users.getAll() 
     ]).then(([historyRes, usersRes]) => {
       setData(historyRes.data.data);
       setUsers(usersRes.data.data);
-    }).catch(err => {
-      console.error(err);
-      toast.error("Failed to load file details");
-    });
-  }, [id]);
+    }).catch(err => toast.error("Failed to load details"));
+  };
+
+  useEffect(() => { loadData(); }, [id]);
+
+  // --- ACTIONS ---
 
   const onMove = async (formData) => {
+    // 1. Identify the Recipient
+    const recipientId = parseInt(formData.receiverId);
+    const targetUser = users.find(u => u.id === recipientId);
+
+    // 2. VERIFICATION LOGIC: Check if sending to PRESIDENT
+    if (targetUser?.designation?.name === 'PRESIDENT') {
+      const isConfirmed = window.confirm(
+        "⚠️ CRITICAL ACTION: SENDING TO PRESIDENT\n\n" +
+        "You are about to forward this file to the President for final approval/signature.\n" +
+        "• Have you verified all attachments?\n" +
+        "• Is the Note Sheet complete?\n\n" +
+        "Click OK to proceed or Cancel to review."
+      );
+      
+      // Stop if user cancels
+      if (!isConfirmed) return; 
+    }
+
     try {
-      // Matches src/modules/workflow/dtos/request/MoveFileRequestDto.js
       const payload = {
-        receiverId: parseInt(formData.receiverId),
+        receiverId: recipientId,
         action: formData.action,
         remarks: formData.remarks,
-        pin: formData.pin // Backend checks this for APPROVE/REJECT
+        pin: formData.pin
       };
-
       await endpoints.workflow.move(id, payload);
       toast.success('Action recorded successfully');
       navigate('/files/inbox');
@@ -48,23 +74,82 @@ const FileDetails = () => {
     }
   };
 
-  const handleDownload = (url) => {
-    // Since backend returns a MinIO key/URL, we open it.
-    // If it's a relative path, you might need to prepend your MinIO public URL.
-    window.open(url, '_blank'); 
+  const handleUploadSignedDoc = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('signed_doc', file);
+
+    const toastId = toast.loading('Uploading signed copy...');
+    try {
+      await endpoints.files.uploadSignedDoc(id, formData);
+      toast.success('Signed document uploaded', { id: toastId });
+      loadData(); 
+    } catch (err) {
+      toast.error('Upload failed', { id: toastId });
+    }
+  };
+
+  const handleAddAttachment = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const formData = new FormData();
+    Array.from(files).forEach(f => formData.append('attachments', f));
+
+    const toastId = toast.loading('Adding attachments...');
+    try {
+      await endpoints.files.addAttachment(id, formData);
+      toast.success('Attachments added', { id: toastId });
+      loadData(); 
+    } catch (err) {
+      toast.error('Failed to add attachments', { id: toastId });
+    }
+  };
+
+  const handleRemoveAttachment = async (attId) => {
+    if(!confirm("Are you sure you want to remove this attachment?")) return;
+    try {
+      await endpoints.files.removeAttachment(attId);
+      toast.success('Attachment removed');
+      loadData();
+    } catch (err) {
+      toast.error('Deletion failed');
+    }
+  };
+
+  const handleDownload = async (type, identifier) => {
+    const toastId = toast.loading('Opening...');
+    try {
+      let response;
+      if (type === 'puc') response = await endpoints.files.downloadPuc(identifier);
+      else if (type === 'attachment') response = await endpoints.files.downloadAttachment(identifier);
+      else if (type === 'signed') response = await endpoints.files.downloadSignedDoc(identifier);
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('target', '_blank');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Done', { id: toastId });
+    } catch (err) {
+      toast.error('Download failed', { id: toastId });
+    }
   };
 
   if (!data) return <div className="p-10 text-center text-teal-600 font-medium">Loading details...</div>;
   const { file, history } = data;
   
-  // Logic: Can current user act on this?
-  // Backend uses 'current_holder_id', DTO sends 'currentHolder' name.
-  // Ideally, compare IDs if available, or rely on Inbox presence.
-  const isHolder = file.currentHolder === user.fullName || user.systemRole === 'ADMIN'; 
+  const isBoardMember = user.systemRole === 'BOARD_MEMBER' || user.systemRole === 'ADMIN';
+  const isPresident = user.designation?.name === 'PRESIDENT'; 
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in-up">
-      {/* Main Content */}
+      
       <div className="lg:col-span-2 space-y-6">
         {/* File Metadata Card */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
@@ -86,60 +171,93 @@ const FileDetails = () => {
             <p><span className="font-semibold text-slate-800 block mb-1">Priority</span> {file.priority}</p>
             <p><span className="font-semibold text-slate-800 block mb-1">Initiator</span> {file.createdBy}</p>
             
-            {/* New Fields from DTO */}
             <div className="col-span-2 border-t border-slate-200 mt-2 pt-3">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Currently With</p>
                 <div className="flex gap-4">
                     <div className="flex items-center gap-2">
                         <User size={14} className="text-teal-600"/> <span className="font-medium text-slate-800">{file.currentHolder}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Briefcase size={14} className="text-teal-600"/> <span className="text-slate-700">{file.currentPosition?.designation}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Building2 size={14} className="text-teal-600"/> <span className="text-slate-700">{file.currentPosition?.department}</span>
-                    </div>
+                    {file.currentPosition && (
+                      <>
+                        <div className="flex items-center gap-2">
+                            <Briefcase size={14} className="text-teal-600"/> <span className="text-slate-700">{file.currentPosition.designation}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Building2 size={14} className="text-teal-600"/> <span className="text-slate-700">{file.currentPosition.department}</span>
+                        </div>
+                      </>
+                    )}
                 </div>
             </div>
           </div>
 
           <div className="mt-8">
-            <h4 className="font-bold text-slate-700 flex items-center gap-2 mb-4 border-b pb-2">
-              <Paperclip size={18} className="text-teal-600" /> Attachments
-            </h4>
+            <div className="flex justify-between items-center border-b pb-2 mb-4">
+              <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                <Paperclip size={18} className="text-teal-600" /> Attachments
+              </h4>
+              {isBoardMember && (
+                <label className="cursor-pointer text-xs font-bold text-teal-600 hover:text-teal-800 flex items-center gap-1">
+                  <PlusCircle size={14} /> Add New
+                  <input type="file" multiple ref={attachmentInputRef} className="hidden" onChange={handleAddAttachment} />
+                </label>
+              )}
+            </div>
+
             <ul className="space-y-3">
-              {/* PUC - Main File */}
-              <li className="flex items-center gap-3 text-sm bg-teal-50 p-3 rounded-lg text-teal-800 border border-teal-100 transition-colors hover:bg-teal-100">
+              {/* PUC */}
+              <li className="flex items-center gap-3 text-sm bg-teal-50 p-3 rounded-lg border border-teal-100">
                 <span className="font-bold bg-teal-200 text-teal-900 px-2 py-0.5 rounded text-xs">PUC</span>
-                <FileText size={16} />
-                <button 
-                  onClick={() => handleDownload(file.pucUrl)}
-                  className="hover:underline truncate flex-1 text-left font-medium focus:outline-none"
-                >
-                  {file.originalName}
-                </button>
-                <Download size={16} className="text-teal-500 hover:text-teal-700" />
+                <button onClick={() => handleDownload('puc', file.id)} className="hover:underline flex-1 text-left font-medium">{file.originalName}</button>
+                <Download size={16} className="text-teal-500 cursor-pointer" onClick={() => handleDownload('puc', file.id)}/>
               </li>
+
+              {/* Signed Doc */}
+              {file.signedDocUrl && (
+                <li className="flex items-center gap-3 text-sm bg-purple-50 p-3 rounded-lg border border-purple-100">
+                  <span className="font-bold bg-purple-200 text-purple-900 px-2 py-0.5 rounded text-xs">SIGNED</span>
+                  <button onClick={() => handleDownload('signed', file.id)} className="hover:underline flex-1 text-left font-medium">Final Signed Copy.pdf</button>
+                  {isPresident ? (
+                    <Download size={16} className="text-purple-500 cursor-pointer" onClick={() => handleDownload('signed', file.id)}/>
+                  ) : (
+                    <Lock size={14} className="text-slate-400" />
+                  )}
+                </li>
+              )}
 
               {/* Attachments */}
               {file.attachments.map(att => (
-                 <li key={att.id} className="flex items-center gap-3 text-sm bg-slate-50 p-3 rounded-lg text-slate-600 border border-slate-200 ml-4 transition-colors hover:bg-slate-100">
+                 <li key={att.id} className="flex items-center gap-3 text-sm bg-slate-50 p-3 rounded-lg border border-slate-200">
                    <span className="font-semibold text-slate-400 text-xs">REF</span>
-                   <Paperclip size={16} />
-                   <button 
-                     onClick={() => handleDownload(att.url)}
-                     className="hover:underline truncate flex-1 text-left focus:outline-none"
-                   >
-                     {att.name}
-                   </button>
-                   <Download size={16} className="text-slate-400 hover:text-slate-600" />
+                   <button onClick={() => handleDownload('attachment', att.id)} className="hover:underline flex-1 text-left">{att.name}</button>
+                   
+                   {isBoardMember && (
+                     <button onClick={() => handleRemoveAttachment(att.id)} className="text-red-400 hover:text-red-600 mr-2" title="Remove">
+                       <Trash2 size={16} />
+                     </button>
+                   )}
+                   <Download size={16} className="text-slate-400 cursor-pointer" onClick={() => handleDownload('attachment', att.id)}/>
                  </li>
               ))}
             </ul>
           </div>
         </div>
 
-        {/* Action Panel - Only show if not Admin (unless doing override) and if file is Pending */}
+        {/* Upload Signed Doc */}
+        {isPresident && !file.signedDocUrl && (
+          <div className="bg-gradient-to-r from-purple-50 to-white p-6 rounded-2xl border border-purple-100 shadow-sm">
+            <h3 className="text-lg font-bold text-purple-900 flex items-center gap-2 mb-2">
+              <PenTool size={20} /> President's Action
+            </h3>
+            <p className="text-sm text-purple-700 mb-4">Upload the final signed copy of the document to complete the process.</p>
+            <label className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-purple-700 transition-colors">
+              <Upload size={18} /> Upload Signed PDF
+              <input type="file" accept="application/pdf" ref={fileInputRef} className="hidden" onChange={handleUploadSignedDoc} />
+            </label>
+          </div>
+        )}
+
+        {/* Workflow Action Panel */}
         <div className="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-teal-600">
             <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
               <ArrowRight className="text-teal-600" /> Take Action
@@ -151,7 +269,6 @@ const FileDetails = () => {
                 <select {...register("action", { required: true })} className="w-full border p-3 rounded-xl bg-slate-50 focus:ring-2 focus:ring-teal-500 outline-none">
                   <option value="FORWARD">Forward</option>
                   <option value="REVERT">Revert</option>
-                  {/* Logic: Only Board Members or Admins see Approve/Reject */}
                   {(user.systemRole === 'ADMIN' || user.systemRole === 'BOARD_MEMBER') && (
                     <>
                       <option value="APPROVE">Approve</option>
@@ -167,7 +284,7 @@ const FileDetails = () => {
                   <option value="">Select Official</option>
                   {users.map(u => (
                     <option key={u.id} value={u.id}>
-                      {u.fullName} ({u.designation})
+                      {u.full_name} ({u.designation?.name || 'Staff'})
                     </option>
                   ))}
                 </select>
@@ -200,12 +317,12 @@ const FileDetails = () => {
               )}
 
               <div className="col-span-2 pt-2">
-                <button type="submit" disabled={isSubmitting} className="w-full bg-teal-600 text-white py-3 rounded-xl hover:bg-teal-700 font-bold shadow-md shadow-teal-200 transition-all disabled:opacity-50 flex justify-center gap-2">
-                   {isSubmitting && <Loader2 className="animate-spin" />} Confirm & Submit
+                <button type="submit" disabled={isSubmitting} className="w-full bg-teal-600 text-white py-3 rounded-xl hover:bg-teal-700 font-bold shadow-md shadow-teal-200 transition-all disabled:opacity-50 flex justify-center gap-2 items-center">
+                   {isSubmitting ? <Loader2 className="animate-spin" /> : 'Confirm & Submit'}
                 </button>
               </div>
             </form>
-          </div>
+        </div>
       </div>
 
       {/* Sidebar: Audit Trail */}
@@ -217,19 +334,16 @@ const FileDetails = () => {
             </h3>
           </div>
           <div className="p-6">
-            <div className="relative border-l-2 border-slate-100 ml-3 space-y-8 pb-2">
+             <div className="relative border-l-2 border-slate-100 ml-3 space-y-8 pb-2">
               {history.map((item, idx) => (
                 <div key={idx} className="ml-6 relative">
                   <span className={`absolute -left-[31px] top-1 border-4 border-white rounded-full w-4 h-4 shadow-sm ${idx === 0 ? 'bg-teal-500 ring-2 ring-teal-100' : 'bg-slate-300'}`}></span>
                   <div className="text-xs text-slate-400 font-mono mb-1">{item.date}</div>
                   <h4 className="font-bold text-slate-800 text-sm">{item.action}</h4>
                   <div className="text-xs text-slate-600 mt-2 flex flex-col gap-1">
-                    <div className="flex items-center gap-1"><User size={12} /> {item.from} <span className="text-[10px] text-slate-400">({item.senderDesignation})</span></div>
+                    <div className="flex items-center gap-1"><User size={12} /> {item.from}</div>
                     {item.to !== 'System' && (
-                      <>
-                        <div className="pl-4 text-slate-400 text-[10px]">▼</div>
-                        <div className="flex items-center gap-1 font-medium"><User size={12} /> {item.to} <span className="text-[10px] text-slate-400">({item.receiverDesignation})</span></div>
-                      </>
+                        <div className="flex items-center gap-1 font-medium"><User size={12} /> {item.to}</div>
                     )}
                   </div>
                   {item.remarks && <p className="text-xs text-slate-500 italic mt-2 bg-slate-50 p-2 rounded border border-slate-100">"{item.remarks}"</p>}

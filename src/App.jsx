@@ -7,13 +7,15 @@ import Layout from './components/Layout';
 import Login from './pages/Auth/Login';
 import SetPin from './pages/Auth/SetPin';
 import Dashboard from './pages/Dashboard/Dashboard';
+import ChangePassword from './pages/Auth/ChangePassword';
 import Inbox from './pages/Files/Inbox';
 import Outbox from './pages/Files/Outbox';
 import CreateFile from './pages/Files/CreateFile';
 import FileDetails from './pages/Files/FileDetails';
 import SearchFiles from './pages/Search/SearchFiles';
 import CreateUser from './pages/Users/CreateUser';
-
+import ManageUsers from './pages/Users/ManageUsers'; // 1. Import List Page
+import EditUser from './pages/Users/EditUser';       // 2. Import Edit Page (Created in previous step)
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -34,11 +36,13 @@ function App() {
           
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
-            
+            <Route path="auth/change-password" element={<ChangePassword />}/>
             {/* Nested Routes */}
             <Route path="auth/set-pin" element={<SetPin />} />
             <Route path="files/inbox" element={<Inbox />} />
             <Route path="files/outbox" element={<Outbox />} />
+            <Route path="users" element={<ManageUsers />} />       
+  <Route path="users/:id/edit" element={<EditUser />} />   
             <Route path="files/create" element={<CreateFile />} />
             <Route path="files/:id" element={<FileDetails />} />
             <Route path="search" element={<SearchFiles />} />

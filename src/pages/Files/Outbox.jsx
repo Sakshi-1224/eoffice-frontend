@@ -55,7 +55,6 @@ const Outbox = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                {/* --- SEA GREEN HEADER --- */}
                 <tr className="text-xs font-bold uppercase tracking-wider text-white">
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30 rounded-tl-lg">File Number</th>
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Subject</th>
@@ -71,9 +70,12 @@ const Outbox = () => {
                     <td className="p-4 font-mono text-sm text-teal-700 font-medium">{file.fileNumber}</td>
                     <td className="p-4 font-medium text-slate-800">{file.subject}</td>
                     <td className="p-4 text-sm text-slate-600">{file.type}</td>
+                    
+                    {/* 🚨 FIX: Backend returns string, not object */}
                     <td className="p-4 text-sm text-slate-600">
-                      {file.currentHolder?.full_name || 'Completed'}
+                      {file.currentHolder || 'Completed'}
                     </td>
+
                     <td className="p-4">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                         {file.status}
