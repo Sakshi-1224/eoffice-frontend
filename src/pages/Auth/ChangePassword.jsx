@@ -2,14 +2,16 @@ import { useForm } from 'react-hook-form';
 import { endpoints } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { LockKeyhole, Loader2, ShieldCheck } from 'lucide-react';
+import { LockKeyhole, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 const ChangePassword = () => {
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
   const navigate = useNavigate();
 
-  // Watch to compare passwords
   const newPassword = watch('newPassword');
+  
+  // Strong Password Regex
+  const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
   const onSubmit = async (data) => {
     try {
@@ -19,7 +21,6 @@ const ChangePassword = () => {
       });
       toast.success('Password updated successfully. Please login again.');
       
-      // Optional: Logout user to force re-login with new credentials
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       navigate('/login');
@@ -31,6 +32,7 @@ const ChangePassword = () => {
 
   return (
     <div className="max-w-md mx-auto mt-10 bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in-up">
+      {/* ... Header remains same ... */}
       <div className="flex items-center gap-4 border-b border-slate-100 pb-6 mb-6">
         <div className="p-3 bg-teal-50 rounded-xl text-teal-600 border border-teal-100">
           <ShieldCheck size={24} />
@@ -49,7 +51,7 @@ const ChangePassword = () => {
             <input 
               type="password"
               {...register("oldPassword", { required: "Current password is required" })} 
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all" 
+              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" 
               placeholder="Enter current password" 
             />
           </div>
@@ -64,13 +66,21 @@ const ChangePassword = () => {
               type="password"
               {...register("newPassword", { 
                 required: "New password is required",
-                minLength: { value: 6, message: "Must be at least 6 characters" }
+                pattern: {
+                  value: strongPasswordRegex,
+                  message: "Must include 1 Uppercase, 1 Lowercase, 1 Number, 1 Special Char (Min 8)"
+                }
               })} 
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all" 
+              className={`w-full pl-10 pr-4 py-3 border ${errors.newPassword ? 'border-red-300 bg-red-50' : 'border-slate-300'} rounded-lg focus:ring-2 focus:ring-teal-500 outline-none`} 
               placeholder="Enter new password" 
             />
           </div>
-          {errors.newPassword && <span className="text-xs text-red-500 mt-1 block">{errors.newPassword.message}</span>}
+          {errors.newPassword && (
+             <div className="flex items-start gap-1 mt-1 text-xs text-red-500">
+               <AlertTriangle size={12} className="mt-0.5" />
+               <span>{errors.newPassword.message}</span>
+            </div>
+          )}
         </div>
 
         <div>
@@ -83,7 +93,7 @@ const ChangePassword = () => {
                 required: "Please confirm your password",
                 validate: (val) => val === newPassword || "Passwords do not match"
               })} 
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all" 
+              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" 
               placeholder="Retype new password" 
             />
           </div>

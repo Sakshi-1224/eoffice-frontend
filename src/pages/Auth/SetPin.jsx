@@ -3,11 +3,11 @@ import { endpoints } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { KeyRound, Loader2, Lock } from 'lucide-react';
-
+import { useAuth } from '../../context/AuthContext';
 const SetPin = () => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
   const navigate = useNavigate();
-
+const { updateUser } = useAuth(); // 2. Get the helper
   const onSubmit = async (data) => {
     try {
       // Matches Backend Schema: { "password": "string", "newPin": "\\dddd" }
@@ -15,7 +15,7 @@ const SetPin = () => {
         password: data.password,
         newPin: data.pin 
       });
-      
+      updateUser({ isPinSet: true });
       toast.success('Security PIN set successfully!');
       navigate('/');
     } catch (error) {
