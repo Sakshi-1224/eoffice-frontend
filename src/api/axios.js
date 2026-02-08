@@ -10,22 +10,44 @@ const api = axios.create({
   },
 });
 
-// Add Token to every request (Middleware)
+// --- REQUEST INTERCEPTOR (Fixes the 401 Error) ---
 api.interceptors.request.use((config) => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (user?.token) {
-    config.headers.Authorization = `Bearer ${user.token}`;
+  // 1. Try getting the token directly (This matches your AuthContext)
+  let token = localStorage.getItem('token');
+
+  // 2. Fallback: If not found, check inside the 'user' object (Just in case)
+  if (!token) {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        token = user?.token || user?.data?.token;
+      } catch (e) {
+        console.error("Error parsing user from localStorage", e);
+      }
+    }
   }
+
+  // 3. Attach Token if it exists
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  
   return config;
 }, (error) => Promise.reject(error));
 
-// Handle Errors (Auto-logout on 401)
+// --- RESPONSE INTERCEPTOR (Handles Expiration) ---
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // If Backend says "Unauthorized" (401), force logout
     if (error.response?.status === 401) {
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Prevent infinite loops if already on login page
+      if (!window.location.pathname.includes('/login')) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -36,16 +58,21 @@ api.interceptors.response.use(
 export const endpoints = {
   auth: {
     login: (data) => api.post('/auth/login', data),
-    changePassword: (data) => api.post('/auth/change-password', data),
+    // Updated key names to match backend DTOs
+    changePassword: (data) => api.post('/auth/change-password', data), 
     setPin: (data) => api.post('/auth/set-pin', data),
   },
   users: {
     create: (data) => api.post('/users', data),
-    getAll: () => api.get('/users'), // Returns list for Dropdowns
+    getAll: () => api.get('/users'),
     update: (id, data) => api.patch(`/users/${id}`, data),
+    
+    // Dropdowns
     getDepartments: () => api.get('/users/departments'),
-    createDepartment: (data) => api.post('/users/departments', data),
     getDesignations: () => api.get('/users/designations'),
+    
+    // Admin Only
+    createDepartment: (data) => api.post('/users/departments', data),
     createDesignation: (data) => api.post('/users/designations', data),
   },
   files: {
@@ -57,15 +84,27 @@ export const endpoints = {
     search: (queryString) => api.get(`/files/search?${queryString}`),
     stats: () => api.get('/files/stats'),
     history: (id) => api.get(`/files/${id}/history`),
-    // Note: Your backend currently sends a MinIO key/URL. 
-    // If you add a specific download route later, add it here.
+    
+    // --- DOWNLOAD ROUTES (Streaming from MinIO) ---
+    downloadPuc: (id) => api.get(`/files/${id}/download-puc`, { responseType: 'blob' }),
+    downloadAttachment: (attachmentId) => api.get(`/files/attachment/${attachmentId}/download`, { responseType: 'blob' }),
+    downloadSignedDoc: (id) => api.get(`/files/${id}/download-signed`, { responseType: 'blob' }),
+    
+    // --- ACTIONS ---
+    uploadSignedDoc: (id, formData) => api.post(`/files/${id}/sign`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+    addAttachment: (id, formData) => api.post(`/files/${id}/attachment`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+    removeAttachment: (attachmentId) => api.delete(`/files/attachment/${attachmentId}`),
   },
   workflow: {
-    // Matches src/modules/workflow/routes/workflow.routes.js
     move: (fileId, data) => api.post(`/workflow/files/${fileId}/move`, data),
   },
   common: {
     health: () => api.get('/health'),
+    constants: () => api.get('/constants'),
   }
 };
 

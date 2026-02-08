@@ -33,7 +33,7 @@ const Login = () => {
       </div>
       {/* --------------------------------------- */}
 
-      <div className="flex flex-col md:flex-row w-full max-w-5xl bg-white/5 backdrop-blur-md rounded-3xl shadow-2xl border border-white/10 overflow-hidden mt-32 md:mt-24">
+      <div className="flex flex-col md:flex-row w-full max-w-5xl bg-white/5 backdrop-blur-md rounded-3xl shadow-2xl border border-white/10 overflow-hidden mt-25 md:mt-20">
         
         {/* Left Side: Illustration */}
         <div className="hidden md:flex md:w-1/2 items-center justify-center p-12 bg-gradient-to-br from-blue-900/80 to-transparent relative">
@@ -65,20 +65,20 @@ const Login = () => {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="group">
-              <label className="block text-xs font-medium text-blue-300 mb-1.5 ml-1">LOGIN ID / PHONE</label>
+              <label className="block text-xs font-medium text-white-300 mb-1.5 ml-1">LOGIN ID / PHONE</label>
               <input 
                 {...register("phoneNumber", { required: true })}
-                className="w-full bg-[#0f1a30] border border-blue-800/50 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 block p-3.5 placeholder-blue-700/50 shadow-inner"
+                className="w-full bg-[#0f1a30] border border-blue-800/50 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 block p-3.5 placeholder-white-700/50 shadow-inner"
                 placeholder="Enter 10-digit number"
               />
             </div>
             
             <div className="group">
-              <label className="block text-xs font-medium text-blue-300 mb-1.5 ml-1">PASSWORD</label>
+              <label className="block text-xs font-medium text-white-300 mb-1.5 ml-1">PASSWORD</label>
               <input 
                 type="password"
                 {...register("password", { required: true })}
-                className="w-full bg-[#0f1a30] border border-blue-800/50 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 block p-3.5 placeholder-blue-700/50 shadow-inner"
+                className="w-full bg-[#0f1a30] border border-blue-800/50 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 block p-3.5 placeholder-white-700/50 shadow-inner"
                 placeholder="Enter password"
               />
             </div>
