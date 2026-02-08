@@ -1,29 +1,43 @@
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import banner from '../../assets/banner.jpg';
-// Ideally, this should be a transparent PNG for the best look
+
 const LOGO_URL = logo; 
-const BANNER=banner;
+const BANNER = banner;
+
 const Login = () => {
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm();
+  const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm();
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const onSubmit = async (data) => {
-    // Direct login without Captcha check
-    const success = await login(data);
-    if (success) {
-      navigate('/');
+    try {
+      // Direct login attempt
+      const success = await login(data);
+      if (success) {
+        navigate('/');
+      } else {
+        // If login returns false (handled by context mostly, but for safety)
+        setError('root', { 
+          type: 'manual', 
+          message: 'Invalid credentials. Please check your details.' 
+        });
+      }
+    } catch (error) {
+      // Catch backend errors (401 Unauthorized)
+      setError('root', { 
+        type: 'manual', 
+        message: error.response?.data?.message || 'Invalid Login ID or Password' 
+      });
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#001f5c] via-[#003d82] to-[#005bb5] flex flex-col items-center justify-center p-4 font-sans text-white">
       
-      {/* --- LOGO SECTION (Clean, No Circle) --- */}
       <div className="absolute top-6 flex flex-col items-center animate-fade-in-down z-10">
         <img 
           src={LOGO_URL} 
@@ -31,7 +45,6 @@ const Login = () => {
           className="w-120 h-40 object-contain mb-4 drop-shadow-2xl" 
         />
       </div>
-      {/* --------------------------------------- */}
 
       <div className="flex flex-col md:flex-row w-full max-w-5xl bg-white/5 backdrop-blur-md rounded-3xl shadow-2xl border border-white/10 overflow-hidden mt-25 md:mt-20">
         
@@ -63,24 +76,40 @@ const Login = () => {
             Secure Login
           </h3>
 
+          {/* Global Error Message for Invalid Credentials */}
+          {errors.root && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg flex items-center gap-2 text-red-200 text-sm animate-pulse">
+              <AlertCircle size={16} />
+              {errors.root.message}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="group">
               <label className="block text-xs font-medium text-white-300 mb-1.5 ml-1">LOGIN ID / PHONE</label>
               <input 
-                {...register("phoneNumber", { required: true })}
-                className="w-full bg-[#0f1a30] border border-blue-800/50 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 block p-3.5 placeholder-white-700/50 shadow-inner"
+                {...register("phoneNumber", { 
+                  required: "Phone number is required",
+                  pattern: {
+                    value: /^[0-9]{10}$/,
+                    message: "Please enter a valid 10-digit number"
+                  }
+                })}
+                className={`w-full bg-[#0f1a30] border ${errors.phoneNumber ? 'border-red-500' : 'border-blue-800/50'} text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 block p-3.5 placeholder-white-700/50 shadow-inner transition-colors`}
                 placeholder="Enter 10-digit number"
               />
+              {errors.phoneNumber && <span className="text-xs text-red-400 mt-1 ml-1">{errors.phoneNumber.message}</span>}
             </div>
             
             <div className="group">
               <label className="block text-xs font-medium text-white-300 mb-1.5 ml-1">PASSWORD</label>
               <input 
                 type="password"
-                {...register("password", { required: true })}
+                {...register("password", { required: "Password is required" })}
                 className="w-full bg-[#0f1a30] border border-blue-800/50 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 block p-3.5 placeholder-white-700/50 shadow-inner"
                 placeholder="Enter password"
               />
+              {errors.password && <span className="text-xs text-red-400 mt-1 ml-1">{errors.password.message}</span>}
             </div>
 
             <button 
