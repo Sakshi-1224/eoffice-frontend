@@ -1,16 +1,35 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { endpoints } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { UploadCloud, FileCheck, Paperclip, Loader2, FilePlus } from 'lucide-react';
+import { UploadCloud, FileCheck, Paperclip, Loader2, FilePlus, X, Trash2 } from 'lucide-react';
 
 const CreateFile = () => {
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
   const navigate = useNavigate();
 
-  // Watch specific fields to provide real-time UI feedback (Turn cards Teal when files are selected)
+  // 🟢 STATE: Store accumulated attachments here
+  const [attachments, setAttachments] = useState([]);
+
+  // Watch PUC field just for previewing the name
   const pucFile = watch('puc');
-  const attachmentFiles = watch('attachments');
+
+  // 🟢 HANDLER: Append new files to existing list
+  const handleAttachmentChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setAttachments((prev) => [...prev, ...newFiles]);
+      
+      // Reset input so you can select the same file again if needed
+      e.target.value = ''; 
+    }
+  };
+
+  // 🟢 HANDLER: Remove specific file
+  const removeAttachment = (indexToRemove) => {
+    setAttachments((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
 
   const onSubmit = async (data) => {
     const formData = new FormData();
@@ -19,14 +38,14 @@ const CreateFile = () => {
     formData.append('priority', data.priority);
     formData.append('type', data.type);
     
-    // Backend expects 'puc' as a single file
+    // 1. PUC (Main File - Single)
     if (data.puc && data.puc[0]) {
       formData.append('puc', data.puc[0]);
     }
     
-    // Backend expects 'attachments' as an array
-    if (data.attachments && data.attachments.length > 0) {
-      Array.from(data.attachments).forEach(file => {
+    // 2. Attachments (From our Local State)
+    if (attachments.length > 0) {
+      attachments.forEach(file => {
         formData.append('attachments', file);
       });
     }
@@ -37,8 +56,6 @@ const CreateFile = () => {
       navigate('/files/outbox');
     } catch (e) {
       console.error(e);
-      // The global error handler in axios or app.js should handle the toast display, 
-      // but strictly handling it here helps if that fails.
       toast.error(e.response?.data?.message || 'Failed to create file');
     }
   };
@@ -46,7 +63,7 @@ const CreateFile = () => {
   return (
     <div className="max-w-4xl mx-auto mt-10 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up">
       
-      {/* --- Header Section (Teal Theme) --- */}
+      {/* Header */}
       <div className="px-8 py-6 border-b border-slate-100 flex items-center gap-4">
         <div className="p-3 bg-teal-50 rounded-xl text-teal-600 border border-teal-100">
           <FilePlus size={24} />
@@ -58,13 +75,14 @@ const CreateFile = () => {
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-6">
-        {/* Subject Input */}
+        
+        {/* Subject */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">Subject <span className="text-red-500">*</span></label>
           <input 
-            {...register("subject", { required: "Subject is required", minLength: { value: 5, message: "Subject must be at least 5 characters" } })} 
-            className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
-            placeholder="e.g. Budget Approval for Annual Sports Meet"
+            {...register("subject", { required: "Subject is required", minLength: { value: 5, message: "Min 5 chars" } })} 
+            className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+            placeholder="e.g. Budget Approval"
           />
           {errors.subject && <span className="text-xs text-red-500 mt-1 block">{errors.subject.message}</span>}
         </div>
@@ -73,7 +91,7 @@ const CreateFile = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">Priority</label>
-            <select {...register("priority")} className="w-full border border-slate-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none">
+            <select {...register("priority")} className="w-full border border-slate-300 rounded-lg p-3 bg-white outline-none">
               <option value="LOW">Low</option>
               <option value="MEDIUM">Medium</option>
               <option value="HIGH">High</option>
@@ -81,7 +99,7 @@ const CreateFile = () => {
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">File Type</label>
-            <select {...register("type")} className="w-full border border-slate-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none">
+            <select {...register("type")} className="w-full border border-slate-300 rounded-lg p-3 bg-white outline-none">
               <option value="GENERIC">Generic</option>
               <option value="FINANCIAL">Financial</option>
               <option value="POLICY">Policy</option>
@@ -94,20 +112,20 @@ const CreateFile = () => {
           <label className="block text-sm font-semibold text-slate-700 mb-2">Description</label>
           <textarea 
             {...register("description")} 
-            rows="4" 
-            className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
-            placeholder="Detailed description of the matter..."
+            rows="3" 
+            className="w-full border border-slate-300 rounded-lg p-3 outline-none" 
+            placeholder="Detailed description..."
           ></textarea>
         </div>
 
         {/* --- File Upload Section --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* PUC Upload Card - Turns Teal when file selected */}
+          {/* 1. PUC Upload (Standard Single File) */}
           <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${pucFile && pucFile.length > 0 ? 'border-teal-400 bg-teal-50' : 'border-slate-300 hover:bg-slate-50'}`}>
             <UploadCloud className={`mx-auto h-10 w-10 mb-2 ${pucFile && pucFile.length > 0 ? 'text-teal-600' : 'text-slate-400'}`} />
             
-            <label className="block text-sm font-medium text-slate-700 mb-1 cursor-pointer hover:text-teal-600 transition-colors">
+            <label className="block text-sm font-medium text-slate-700 mb-1 cursor-pointer hover:text-teal-600">
               {pucFile && pucFile.length > 0 ? 'Change Main Document' : 'Upload Main Document (PUC) *'}
               <input 
                 type="file" 
@@ -117,7 +135,6 @@ const CreateFile = () => {
               />
             </label>
             
-            {/* Visual Feedback for PUC */}
             {pucFile && pucFile.length > 0 ? (
               <div className="mt-3 flex items-center justify-center gap-2 text-sm text-teal-800 font-medium bg-white py-1 px-3 rounded-full shadow-sm border border-teal-100">
                 <FileCheck size={16} className="text-teal-600" />
@@ -126,42 +143,53 @@ const CreateFile = () => {
             ) : (
               <p className="text-xs text-slate-400">PDF only, max 10MB</p>
             )}
-            
             {errors.puc && <span className="text-xs text-red-500 block mt-2">{errors.puc.message}</span>}
           </div>
 
-          {/* Attachments Upload Card - Turns Teal when file selected */}
-          <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${attachmentFiles && attachmentFiles.length > 0 ? 'border-teal-400 bg-teal-50' : 'border-slate-300 hover:bg-slate-50'}`}>
-            <Paperclip className={`mx-auto h-10 w-10 mb-2 ${attachmentFiles && attachmentFiles.length > 0 ? 'text-teal-600' : 'text-slate-400'}`} />
+          {/* 2. Attachments Upload (Fixed: Accumulates files) */}
+          <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${attachments.length > 0 ? 'border-teal-400 bg-teal-50' : 'border-slate-300 hover:bg-slate-50'}`}>
+            <Paperclip className={`mx-auto h-10 w-10 mb-2 ${attachments.length > 0 ? 'text-teal-600' : 'text-slate-400'}`} />
             
-            <label className="block text-sm font-medium text-slate-700 mb-1 cursor-pointer hover:text-teal-600 transition-colors">
-              {attachmentFiles && attachmentFiles.length > 0 ? 'Add/Change Attachments' : 'Supporting Attachments'}
+            <label className="block text-sm font-medium text-slate-700 mb-1 cursor-pointer hover:text-teal-600">
+              {attachments.length > 0 ? 'Add More Attachments' : 'Supporting Attachments'}
               <input 
                 type="file" 
                 multiple 
-                {...register("attachments")} 
+                onChange={handleAttachmentChange} 
                 className="hidden" 
               />
             </label>
 
-            {/* Visual Feedback for Attachments */}
-            {attachmentFiles && attachmentFiles.length > 0 ? (
-              <div className="mt-3 text-sm text-teal-800 font-medium">
-                <p className="bg-white py-1 px-3 rounded-full shadow-sm inline-flex items-center gap-2 border border-teal-100">
-                  <FileCheck size={16} className="text-teal-600" />
-                  {attachmentFiles.length} file(s) selected
+            {/* List of selected attachments with Remove button */}
+            {attachments.length > 0 ? (
+              <div className="mt-4 flex flex-col gap-2">
+                <p className="text-xs text-teal-800 font-bold uppercase tracking-wider mb-1">
+                  {attachments.length} Files Selected
                 </p>
-                <ul className="mt-2 text-xs text-slate-500 space-y-1">
-                  {Array.from(attachmentFiles).slice(0, 3).map((file, idx) => (
-                    <li key={idx} className="truncate max-w-[200px] mx-auto">• {file.name}</li>
+                <div className="max-h-32 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                  {attachments.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-lg border border-teal-100 shadow-sm text-left group">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <FileCheck size={14} className="text-teal-500 shrink-0" />
+                        <span className="text-xs text-slate-700 truncate max-w-[120px]" title={file.name}>{file.name}</span>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => removeAttachment(idx)}
+                        className="text-slate-400 hover:text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
+                        title="Remove file"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   ))}
-                  {attachmentFiles.length > 3 && <li className="text-xs text-slate-400">+ {attachmentFiles.length - 3} more...</li>}
-                </ul>
+                </div>
               </div>
             ) : (
-              <p className="text-xs text-slate-400">Optional, Max 5 files</p>
+              <p className="text-xs text-slate-400">Optional, Multiple files allowed</p>
             )}
           </div>
+
         </div>
 
         <div className="pt-4 flex justify-end">
