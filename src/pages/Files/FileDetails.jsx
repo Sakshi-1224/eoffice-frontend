@@ -1,42 +1,39 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { endpoints } from '../../api/axios'; 
 import { useAuth } from '../../context/AuthContext';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { 
   Paperclip, ArrowRight, History, User, Download, 
-  Upload, Trash2, PlusCircle, PenTool, Building2, Briefcase, 
-  Loader2, ShieldCheck, CheckCircle2, Lock, KeyRound, AlertTriangle
+  Trash2, PlusCircle, Loader2, ShieldCheck, 
+  CheckCircle2, Lock, Send, KeyRound, ShieldAlert
 } from 'lucide-react';
 
 const FileDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const fileInputRef = useRef(null); 
   const attachmentInputRef = useRef(null); 
   
   const [data, setData] = useState(null);
-  const [users, setUsers] = useState([]); 
+  const [users, setUsers] = useState([]);
   
+  // UI Toggles
+  const [showPinInput, setShowPinInput] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  
+  // Forward Form
   const { 
     register, 
     handleSubmit, 
-    watch, 
-    formState: { isSubmitting } 
+    formState: { isSubmitting, errors } 
   } = useForm({
     defaultValues: { action: 'FORWARD', receiverId: '' }
   });
-  const selectedAction = watch("action");
 
-  const { 
-    register: registerVerify, 
-    handleSubmit: handleSubmitVerify,
-    formState: { isSubmitting: isVerifying }
-  } = useForm();
+  const pinRef = useRef(null);
 
-  // Helper
   const getDesignationName = (val) => {
     if (!val) return '';
     if (typeof val === 'string') return val;
@@ -55,95 +52,83 @@ const FileDetails = () => {
 
   useEffect(() => { loadData(); }, [id]);
 
+  if (!data) return <div className="p-10 text-center text-teal-600 font-medium">Loading details...</div>;
+  const { file, history } = data;
+
   // --- ROLE & STATE LOGIC ---
-  const userDesignation = getDesignationName(user?.designation);
-  const isPresident = userDesignation === 'PRESIDENT'; 
+  const isPresident = getDesignationName(user?.designation) === 'PRESIDENT'; 
   const isBoardMember = user?.systemRole === 'BOARD_MEMBER' || user?.systemRole === 'ADMIN';
   const isStaff = user?.systemRole === 'STAFF'; 
-  
-  // 🟢 NEW: Check if PIN is set
+
+  const isDraft = file.status === 'DRAFT'; 
+  const isVerified = file.isVerified;
+
+  // 1. Board Members/President MUST verify (even if draft)
+  const requiresVerification = (isBoardMember || isPresident) && !isVerified;
+
+  // 2. Can they verify? (Only if PIN is set)
   const isPinSet = user?.isPinSet; 
 
-  // Derived States
-  const hasSignedDoc = data?.file?.signedDocUrl;
-  const isVerified = data?.file?.isVerified;
-
-  const showUploadStep = isPresident && !hasSignedDoc;
-  const showVerifyStep = (isBoardMember || isPresident) && !isVerified && !showUploadStep;
-  const showActionStep = !showUploadStep && !showVerifyStep;
-
   // --- HANDLERS ---
-  const onVerifySubmit = async (formData) => {
+
+  const handleVerify = async () => {
+    const pin = pinRef.current?.value;
+    if (!pin || pin.length !== 4) {
+        toast.error("Please enter a valid 4-digit PIN");
+        return;
+    }
+
+    setIsVerifying(true);
     try {
-      const payload = {
-        action: 'VERIFY',
-        remarks: 'Verified by Official',
-        pin: formData.pin
-      };
-      await endpoints.workflow.move(id, payload);
-      toast.success('File Verified Successfully');
-      loadData(); 
+        await endpoints.workflow.move(id, {
+            action: 'VERIFY',
+            remarks: 'Verified via PIN',
+            pin: pin
+        });
+        toast.success("Verification Successful!");
+        setShowPinInput(false); 
+        loadData(); 
     } catch (e) {
-      toast.error(e.response?.data?.message || "Verification Failed");
+        toast.error(e.response?.data?.message || "Verification Failed");
+    } finally {
+        setIsVerifying(false);
     }
   };
 
-  const onMoveSubmit = async (formData) => {
-    const recipientId = parseInt(formData.receiverId);
-    
-    if ((isBoardMember || isPresident) && !isVerified) {
-       toast.error("Security Check Failed: File must be verified first.");
-       return;
-    }
-
+  const onForwardSubmit = async (formData) => {
     try {
       const payload = {
-        receiverId: recipientId,
-        action: formData.action,
-        remarks: formData.remarks,
-        pin: formData.pin
+        receiverId: parseInt(formData.receiverId),
+        action: 'FORWARD', 
+        remarks: formData.remarks
       };
 
-      if (formData.action === 'REVERT') delete payload.receiverId;
-
       await endpoints.workflow.move(id, payload);
-      toast.success('Action recorded successfully');
+      toast.success('File forwarded successfully');
       navigate('/files/inbox');
     } catch (e) { 
       toast.error(e.response?.data?.message || "Action failed");
     }
   };
 
-  const handleUploadSignedDoc = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('signed_doc', file);
-    const toastId = toast.loading('Uploading...');
-    try { await endpoints.files.uploadSignedDoc(id, formData); toast.success('Uploaded', { id: toastId }); loadData(); } catch (err) { toast.error('Failed', { id: toastId }); }
-  };
-
-  const handleAddAttachment = async (e) => { /* ... */ };
   const handleDownload = async (type, identifier) => { 
     const toastId = toast.loading('Opening...');
     try {
       let response;
       if (type === 'puc') response = await endpoints.files.downloadPuc(identifier);
       else if (type === 'attachment') response = await endpoints.files.downloadAttachment(identifier);
-      else if (type === 'signed') response = await endpoints.files.downloadSignedDoc(identifier);
+      
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a'); link.href = url; link.setAttribute('target', '_blank');
       document.body.appendChild(link); link.click(); link.parentNode.removeChild(link);
       toast.success('Done', { id: toastId });
     } catch (err) { toast.error('Download failed', { id: toastId }); }
   };
+
   const handleRemoveAttachment = async (attId) => { 
       if(!confirm("Remove attachment?")) return;
       try { await endpoints.files.removeAttachment(attId); toast.success('Removed'); loadData(); } catch (err) { toast.error('Deletion failed'); }
   };
-
-  if (!data) return <div className="p-10 text-center text-teal-600 font-medium">Loading details...</div>;
-  const { file, history } = data;
 
   const availableRecipients = users.filter(u => {
     if (u.id === user.id) return false;
@@ -155,10 +140,10 @@ const FileDetails = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in-up">
       
-      {/* LEFT COLUMN */}
+      {/* LEFT COLUMN: Metadata & Attachments */}
       <div className="lg:col-span-2 space-y-6">
         
-        {/* METADATA CARD (Same as before) */}
+        {/* METADATA CARD */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
           <div className="flex justify-between items-start mb-6">
             <div>
@@ -166,13 +151,7 @@ const FileDetails = () => {
               <h1 className="text-2xl font-bold text-slate-800 mt-3">{file.subject}</h1>
             </div>
             <div className="flex gap-2">
-                <span className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm ${
-                file.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 
-                'bg-teal-100 text-teal-800 border border-teal-200'
-                }`}>
-                {file.status}
-                </span>
-                {file.isVerified && (
+                {isVerified && (
                     <span className="px-4 py-1.5 rounded-full text-sm font-bold bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1">
                     <ShieldCheck size={14} /> Verified
                     </span>
@@ -188,7 +167,7 @@ const FileDetails = () => {
           <div className="mt-8">
             <h4 className="font-bold text-slate-700 flex items-center gap-2 border-b pb-2 mb-4">
                <Paperclip size={18} /> Attachments
-               {isBoardMember && (
+               {(isBoardMember || isPresident) && (
                 <label className="ml-auto cursor-pointer text-xs font-bold text-teal-600 hover:text-teal-800 flex items-center gap-1">
                   <PlusCircle size={14} /> Add New
                   <input type="file" multiple ref={attachmentInputRef} className="hidden" onChange={(e) => {
@@ -207,18 +186,11 @@ const FileDetails = () => {
                 <span className="flex-1 font-medium">{file.originalName}</span>
                 <Download size={16} className="text-teal-500 cursor-pointer" onClick={() => handleDownload('puc', file.id)}/>
               </li>
-              {file.signedDocUrl && (
-                <li className="flex items-center gap-3 text-sm bg-purple-50 p-3 rounded-lg border border-purple-100">
-                  <span className="font-bold bg-purple-200 text-purple-900 px-2 py-0.5 rounded text-xs">SIGNED</span>
-                  <span className="flex-1 font-medium">Final Signed Copy.pdf</span>
-                  <Download size={16} className="text-purple-500 cursor-pointer" onClick={() => handleDownload('signed', file.id)}/>
-                </li>
-              )}
               {file.attachments.map(att => (
                  <li key={att.id} className="flex items-center gap-3 text-sm bg-slate-50 p-3 rounded-lg border border-slate-200">
                    <span className="font-semibold text-slate-400 text-xs">REF</span>
                    <span className="flex-1">{att.name}</span>
-                   {isBoardMember && <Trash2 size={16} className="text-red-400 cursor-pointer mr-2" onClick={() => handleRemoveAttachment(att.id)}/>}
+                   {(isBoardMember || isPresident) && <Trash2 size={16} className="text-red-400 cursor-pointer mr-2" onClick={() => handleRemoveAttachment(att.id)}/>}
                    <Download size={16} className="text-slate-400 cursor-pointer" onClick={() => handleDownload('attachment', att.id)}/>
                  </li>
               ))}
@@ -226,86 +198,93 @@ const FileDetails = () => {
           </div>
         </div>
 
-        {/* --- WORKFLOW STEP 1: UPLOAD --- */}
-        {showUploadStep && (
-          <div className="bg-gradient-to-r from-purple-50 to-white p-8 rounded-2xl border-2 border-purple-100 shadow-md animate-fade-in-up">
-            <h3 className="text-xl font-bold text-purple-900 flex items-center gap-2 mb-3">
-              <PenTool size={24} /> Step 1: Upload Signed Document
-            </h3>
-            <label className="inline-flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-xl cursor-pointer hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 font-bold">
-              <Upload size={20} /> Select & Upload PDF
-              <input type="file" accept="application/pdf" ref={fileInputRef} className="hidden" onChange={handleUploadSignedDoc} />
-            </label>
-          </div>
+        {/* 🟢 STEP 1: VERIFICATION CARD */}
+        {requiresVerification && (
+            <div className="bg-orange-50 p-8 rounded-2xl border-2 border-orange-100 shadow-md animate-fade-in-up">
+                <h3 className="text-xl font-bold text-orange-800 flex items-center gap-2 mb-2">
+                    <ShieldCheck size={24} /> Step 1: Verification Required
+                </h3>
+                
+                {/* 🔴 NEW: Check if PIN is set */}
+                {!isPinSet ? (
+                    <div className="bg-white p-6 rounded-xl border border-orange-200 text-center mt-4">
+                        <ShieldAlert size={32} className="mx-auto text-orange-500 mb-2"/>
+                        <h4 className="font-bold text-slate-800 mb-1">Security PIN Not Set</h4>
+                        <p className="text-sm text-slate-600 mb-4">You must set up your 4-digit Security PIN before you can verify files.</p>
+                        <button 
+                            onClick={() => navigate('/auth/set-pin')}
+                            className="bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-md hover:bg-orange-700 transition-all text-sm"
+                        >
+                            Set PIN Now
+                        </button>
+                    </div>
+                ) : (
+                    // PIN IS SET: Show Verification Logic
+                    <>
+                        <p className="text-sm text-orange-700 mb-6">
+                            You must digitally verify this file before you can forward it.
+                        </p>
+
+                        {!showPinInput ? (
+                            <button 
+                                onClick={() => setShowPinInput(true)}
+                                className="bg-orange-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-orange-200 hover:bg-orange-700 transition-all flex items-center gap-2"
+                            >
+                                <ShieldCheck size={18} /> Verify File Now
+                            </button>
+                        ) : (
+                            <div className="flex flex-col sm:flex-row gap-4 items-end animate-in fade-in slide-in-from-top-2">
+                                <div className="w-full sm:w-48">
+                                    <label className="block text-xs font-bold text-orange-800 uppercase tracking-wider mb-2">
+                                        <KeyRound size={14} className="inline mr-1"/> Enter PIN
+                                    </label>
+                                    <input 
+                                        type="password" 
+                                        ref={pinRef}
+                                        placeholder="••••"
+                                        maxLength={4}
+                                        className="w-full border-2 border-orange-300 p-3 rounded-xl text-center text-lg tracking-[0.5em] focus:border-orange-600 focus:ring-0 outline-none bg-white font-bold"
+                                    />
+                                </div>
+                                <button 
+                                    onClick={handleVerify}
+                                    disabled={isVerifying}
+                                    className="bg-orange-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-md hover:bg-orange-800 transition-all disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {isVerifying ? <Loader2 className="animate-spin" /> : "Confirm PIN"}
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
         )}
 
-        {/* --- WORKFLOW STEP 2: VERIFICATION --- */}
-        {showVerifyStep && (
-          <div className="bg-gradient-to-r from-emerald-50 to-white p-8 rounded-2xl border-2 border-emerald-100 shadow-md animate-fade-in-up">
-            <h3 className="text-xl font-bold text-emerald-900 flex items-center gap-2 mb-3">
-              <ShieldCheck size={24} /> Step {isPresident ? '2' : '1'}: Verification Required
-            </h3>
-            
-            {/* 🔴 PIN CHECK */}
-            {!isPinSet ? (
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 rounded-full text-amber-600"><AlertTriangle size={24}/></div>
-                    <div className="flex-1">
-                        <h4 className="font-bold text-amber-900">Security PIN Not Set</h4>
-                        <p className="text-sm text-amber-700">You must set your 4-digit Security PIN to verify files.</p>
-                    </div>
-                    <Link to="/auth/set-pin" className="bg-amber-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-amber-700 flex items-center gap-2">
-                        <KeyRound size={16}/> Set PIN
-                    </Link>
-                </div>
-            ) : (
-                <form onSubmit={handleSubmitVerify(onVerifySubmit)} className="flex flex-col sm:flex-row gap-4 items-end">
-                    <div className="w-full sm:w-48">
-                        <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">Security PIN</label>
-                        <input 
-                        type="password" 
-                        {...registerVerify("pin", { required: true, pattern: /^\d{4}$/ })} 
-                        className="w-full border-2 border-emerald-200 p-3 rounded-xl text-center text-lg tracking-[0.5em] focus:border-emerald-500 focus:ring-0 outline-none bg-white"
-                        placeholder="••••"
-                        maxLength={4}
-                        />
-                    </div>
-                    <button type="submit" disabled={isVerifying} className="bg-emerald-600 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center gap-2">
-                        {isVerifying ? <Loader2 className="animate-spin" /> : <>Verify File <CheckCircle2 size={18}/></>}
-                    </button>
-                </form>
-            )}
-          </div>
-        )}
-
-        {/* --- WORKFLOW STEP 3: ACTIONS --- */}
-        {showActionStep && (
+        {/* 🟢 STEP 2: FORWARD ACTION CARD */}
+        {!requiresVerification && (
             <div className="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-teal-600 animate-fade-in-up">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2"><ArrowRight className="text-teal-600" /> Take Action</h3>
-                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 flex items-center gap-1">
-                        <CheckCircle2 size={12} /> Verified & Ready
-                    </span>
+                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <ArrowRight className="text-teal-600" /> Take Action
+                    </h3>
+                    {isVerified && (
+                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 flex items-center gap-1">
+                            <CheckCircle2 size={12} /> Verified & Ready
+                        </span>
+                    )}
                 </div>
 
-                <form onSubmit={handleSubmit(onMoveSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="col-span-1">
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Action</label>
-                        <select {...register("action", { required: true })} className="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-teal-500">
-                        <option value="FORWARD">Forward</option>
-                        <option value="REVERT">Revert</option>
-                        {(user.systemRole === 'ADMIN' || user.systemRole === 'BOARD_MEMBER') && (
-                            <>
-                            <option value="APPROVE">Approve</option>
-                            <option value="REJECT">Reject</option>
-                            </>
-                        )}
-                        </select>
+                <form onSubmit={handleSubmit(onForwardSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="col-span-1 hidden">
+                        <select {...register("action")} disabled className="w-full"><option value="FORWARD">Forward</option></select>
                     </div>
 
-                    <div className="col-span-1">
+                    <div className="col-span-2 md:col-span-1">
                         <label className="block text-sm font-semibold text-slate-700 mb-2">Recipient</label>
-                        <select {...register("receiverId", { required: true })} className="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-teal-500">
+                        <select 
+                            {...register("receiverId", { required: "Please select a recipient" })} 
+                            className="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-teal-500"
+                        >
                         <option value="">Select Official</option>
                         {availableRecipients.map(u => (
                             <option key={u.id} value={u.id}>
@@ -313,52 +292,40 @@ const FileDetails = () => {
                             </option>
                         ))}
                         </select>
+                        {errors.receiverId && <p className="text-red-500 text-xs mt-1">{errors.receiverId.message}</p>}
                     </div>
 
                     <div className="col-span-2">
                         <label className="block text-sm font-semibold text-slate-700 mb-2">Remarks</label>
-                        <textarea {...register("remarks", { required: true })} rows="3" className="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter comments..."></textarea>
+                        <textarea 
+                        {...register("remarks", { required: "Remarks are required" })} rows="3" 
+                        className="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-teal-500"
+                        placeholder="Enter comments..."
+                        ></textarea>
+                        {errors.remarks && <p className="text-red-500 text-xs mt-1">{errors.remarks.message}</p>}
                     </div>
 
-                    {['APPROVE', 'REJECT'].includes(selectedAction) && (
-                        <div className="col-span-2 bg-amber-50 p-4 rounded-xl border border-amber-100">
-                            {/* 🔴 PIN CHECK FOR ACTIONS */}
-                            {!isPinSet ? (
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-amber-200 rounded-full text-amber-700"><AlertTriangle size={20}/></div>
-                                    <div className="flex-1">
-                                        <p className="text-sm font-bold text-amber-900">Security PIN Required</p>
-                                        <Link to="/auth/set-pin" className="text-xs text-amber-700 underline hover:text-amber-900">Set your PIN now</Link>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <label className="block text-sm font-bold text-amber-800 mb-2">Security PIN Required</label>
-                                    <input type="password" {...register("pin", { required: "PIN required", pattern: /^\d{4}$/ })} className="w-full border border-amber-200 p-3 rounded-lg tracking-widest text-center text-lg" placeholder="Enter 4-digit PIN" maxLength={4} />
-                                </>
-                            )}
-                        </div>
-                    )}
-
                     <div className="col-span-2 pt-2">
-                        <button type="submit" disabled={isSubmitting || (['APPROVE', 'REJECT'].includes(selectedAction) && !isPinSet)} className="w-full bg-teal-600 text-white py-3 rounded-xl hover:bg-teal-700 font-bold shadow-md shadow-teal-200 transition-all disabled:opacity-50 flex justify-center gap-2 items-center">
-                        {isSubmitting ? <Loader2 className="animate-spin" /> : 'Confirm & Submit'}
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting} 
+                            className="w-full bg-teal-600 text-white py-3.5 rounded-xl hover:bg-teal-700 font-bold shadow-md shadow-teal-200 transition-all disabled:opacity-50 flex justify-center gap-2 items-center"
+                        >
+                        {isSubmitting ? <Loader2 className="animate-spin" /> : (
+                            <>
+                                <Send size={18}/>
+                                {isDraft ? "Initiate & Send" : "Forward File"}
+                            </>
+                        )}
                         </button>
                     </div>
                 </form>
             </div>
         )}
 
-        {!showUploadStep && !showVerifyStep && !showActionStep && !isStaff && (
-             <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 text-center text-slate-500 flex flex-col items-center gap-2">
-                 <Lock size={24} className="opacity-50"/>
-                 <span className="text-sm">You cannot take action on this file at this time.</span>
-             </div>
-        )}
-
       </div>
 
-      {/* RIGHT COLUMN (Audit) */}
+      {/* RIGHT COLUMN: Audit Trail */}
       <div className="lg:col-span-1">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 sticky top-4 overflow-hidden">
           <div className="bg-teal-600 p-4 border-b border-teal-700">

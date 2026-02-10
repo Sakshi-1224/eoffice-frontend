@@ -10,12 +10,14 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import ChangePassword from './pages/Auth/ChangePassword';
 import Inbox from './pages/Files/Inbox';
 import Outbox from './pages/Files/Outbox';
+import CreatedFiles from './pages/Files/CreatedFiles';
 import CreateFile from './pages/Files/CreateFile';
 import FileDetails from './pages/Files/FileDetails';
 import SearchFiles from './pages/Search/SearchFiles';
 import CreateUser from './pages/Users/CreateUser';
 import ManageUsers from './pages/Users/ManageUsers'; // 1. Import List Page
 import EditUser from './pages/Users/EditUser';       // 2. Import Edit Page (Created in previous step)
+import OutboxFileDetails from './pages/Files/OutboxFileDetails';
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -41,6 +43,8 @@ function App() {
             <Route path="auth/set-pin" element={<SetPin />} />
             <Route path="files/inbox" element={<Inbox />} />
             <Route path="files/outbox" element={<Outbox />} />
+            <Route path="files/outbox/:id" element={<OutboxFileDetails />} />
+            <Route path="files/created" element={<CreatedFiles />} />
             <Route path="users" element={<ManageUsers />} />       
   <Route path="users/:id/edit" element={<EditUser />} />   
             <Route path="files/create" element={<CreateFile />} />

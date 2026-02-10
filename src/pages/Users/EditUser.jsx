@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { endpoints } from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext'; // ✅ Import useAuth
 import toast from 'react-hot-toast';
 import { UserCog, Loader2, Save } from 'lucide-react';
 
 const EditUser = () => {
-  const { id } = useParams(); // User ID from URL
+  const { id } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser, updateUser } = useAuth(); // ✅ Get currentUser and updateUser
+  
   const { register, handleSubmit, setValue, formState: { isSubmitting } } = useForm();
   const [loading, setLoading] = useState(true);
   const [depts, setDepts] = useState([]);
@@ -19,24 +22,27 @@ const EditUser = () => {
         const [deptRes, desigRes, usersRes] = await Promise.all([
           endpoints.users.getDepartments(),
           endpoints.users.getDesignations(),
-          endpoints.users.getAll() // Assuming we fetch list to find user, or add specific GET /users/:id endpoint if available
+          endpoints.users.getAll()
         ]);
         
         setDepts(deptRes.data.data);
         setDesignations(desigRes.data.data);
 
-        // Find specific user from list (Optimization: Backend should have GET /users/:id)
-        const currentUser = usersRes.data.data.find(u => u.id === parseInt(id));
-        if (currentUser) {
-          setValue('fullName', currentUser.full_name);
-          setValue('phoneNumber', currentUser.phone_number);
-          setValue('email', currentUser.email);
-          setValue('systemRole', currentUser.system_role);
-          setValue('designationId', currentUser.designation?.id);
-          setValue('departmentId', currentUser.department?.id);
-          setValue('isActive', currentUser.isActive);
+        // Optimization: Ideally use endpoints.users.getById(id) if available
+        const userToEdit = usersRes.data.data.find(u => u.id === parseInt(id));
+        
+        if (userToEdit) {
+          setValue('fullName', userToEdit.full_name);
+          setValue('phoneNumber', userToEdit.phone_number);
+          setValue('email', userToEdit.email);
+          setValue('systemRole', userToEdit.system_role);
+          // Handle cases where designation/department might be objects or IDs
+          setValue('designationId', userToEdit.designation?.id || userToEdit.designation_id);
+          setValue('departmentId', userToEdit.department?.id || userToEdit.department_id);
+          setValue('isActive', userToEdit.is_active);
         }
       } catch (error) {
+        console.error(error);
         toast.error('Failed to load user data');
       } finally {
         setLoading(false);
@@ -47,13 +53,35 @@ const EditUser = () => {
 
   const onSubmit = async (data) => {
     try {
-      // Remove phone number from payload as it cannot be updated
       const { phoneNumber, ...payload } = data;
       
+      // 1. Send update to backend
       await endpoints.users.update(id, payload);
+      
+      // 2. ✅ Check if we edited the currently logged-in user
+      if (currentUser && currentUser.id === parseInt(id)) {
+        
+        // 3. ✅ Fetch fresh data to get the new Designation/Department NAMES (not just IDs)
+        // We assume endpoints.users.getAll or getById returns the full objects
+        const { data: allUsers } = await endpoints.users.getAll();
+        const freshUser = allUsers.data.find(u => u.id === parseInt(id));
+
+        if (freshUser) {
+            // 4. ✅ Update the AuthContext immediately
+            updateUser({
+                fullName: freshUser.full_name,
+                email: freshUser.email,
+                systemRole: freshUser.system_role,
+                designation: freshUser.designation, // This object contains the new name
+                department: freshUser.department    // This object contains the new name
+            });
+        }
+      }
+
       toast.success('User updated successfully');
-      navigate('/users'); // Redirect to user list
+      navigate('/users');
     } catch (e) {
+      console.error(e);
       toast.error(e.response?.data?.message || 'Update failed');
     }
   };
@@ -62,6 +90,7 @@ const EditUser = () => {
 
   return (
     <div className="max-w-4xl mx-auto mt-10 bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in-up">
+      {/* ... (Rest of the JSX remains exactly the same) ... */}
       <div className="flex items-center gap-4 border-b border-slate-100 pb-6 mb-8">
         <div className="p-3 bg-teal-50 rounded-xl text-teal-600 border border-teal-100">
           <UserCog size={24} />
@@ -97,13 +126,12 @@ const EditUser = () => {
           </select>
         </div>
 
- <div>
+        <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">Designation</label>
           <select 
             {...register("designationId", { required: true })} 
             className="w-full border border-slate-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
           >
-           
             {designations.map(d => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
@@ -116,7 +144,6 @@ const EditUser = () => {
             {...register("departmentId", { required: true })} 
             className="w-full border border-slate-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
           >
-          
             {depts.map(d => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
