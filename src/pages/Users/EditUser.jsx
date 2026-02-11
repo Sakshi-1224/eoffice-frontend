@@ -2,33 +2,40 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { endpoints } from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext'; // ✅ Import useAuth
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { UserCog, Loader2, Save } from 'lucide-react';
 
 const EditUser = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser, updateUser } = useAuth(); // ✅ Get currentUser and updateUser
+  const { user: currentUser, updateUser } = useAuth();
   
   const { register, handleSubmit, setValue, formState: { isSubmitting } } = useForm();
   const [loading, setLoading] = useState(true);
   const [depts, setDepts] = useState([]);
   const [designations, setDesignations] = useState([]);
+  
+  // 🟢 1. State for dynamic roles
+  const [allowedRoles, setAllowedRoles] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [deptRes, desigRes, usersRes] = await Promise.all([
+        const [deptRes, desigRes, usersRes, constantsRes] = await Promise.all([
           endpoints.users.getDepartments(),
           endpoints.users.getDesignations(),
-          endpoints.users.getAll()
+          endpoints.users.getAll(),
+          endpoints.common.constants() // 🟢 2. Fetch Allowed Roles
         ]);
         
         setDepts(deptRes.data.data);
         setDesignations(desigRes.data.data);
+        
+        // 🟢 3. Set Allowed Roles
+        const rolesObj = constantsRes.data.data.ROLES;
+        setAllowedRoles(Object.values(rolesObj));
 
-        // Optimization: Ideally use endpoints.users.getById(id) if available
         const userToEdit = usersRes.data.data.find(u => u.id === parseInt(id));
         
         if (userToEdit) {
@@ -36,7 +43,6 @@ const EditUser = () => {
           setValue('phoneNumber', userToEdit.phone_number);
           setValue('email', userToEdit.email);
           setValue('systemRole', userToEdit.system_role);
-          // Handle cases where designation/department might be objects or IDs
           setValue('designationId', userToEdit.designation?.id || userToEdit.designation_id);
           setValue('departmentId', userToEdit.department?.id || userToEdit.department_id);
           setValue('isActive', userToEdit.is_active);
@@ -55,25 +61,19 @@ const EditUser = () => {
     try {
       const { phoneNumber, ...payload } = data;
       
-      // 1. Send update to backend
       await endpoints.users.update(id, payload);
       
-      // 2. ✅ Check if we edited the currently logged-in user
       if (currentUser && currentUser.id === parseInt(id)) {
-        
-        // 3. ✅ Fetch fresh data to get the new Designation/Department NAMES (not just IDs)
-        // We assume endpoints.users.getAll or getById returns the full objects
         const { data: allUsers } = await endpoints.users.getAll();
         const freshUser = allUsers.data.find(u => u.id === parseInt(id));
 
         if (freshUser) {
-            // 4. ✅ Update the AuthContext immediately
             updateUser({
                 fullName: freshUser.full_name,
                 email: freshUser.email,
                 systemRole: freshUser.system_role,
-                designation: freshUser.designation, // This object contains the new name
-                department: freshUser.department    // This object contains the new name
+                designation: freshUser.designation,
+                department: freshUser.department
             });
         }
       }
@@ -90,7 +90,6 @@ const EditUser = () => {
 
   return (
     <div className="max-w-4xl mx-auto mt-10 bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in-up">
-      {/* ... (Rest of the JSX remains exactly the same) ... */}
       <div className="flex items-center gap-4 border-b border-slate-100 pb-6 mb-8">
         <div className="p-3 bg-teal-50 rounded-xl text-teal-600 border border-teal-100">
           <UserCog size={24} />
@@ -117,12 +116,18 @@ const EditUser = () => {
           <input {...register("email")} className="w-full border p-3 rounded-lg" />
         </div>
 
+        {/* 🟢 4. Dynamic System Role Dropdown */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">System Role</label>
-          <select {...register("systemRole")} className="w-full border p-3 rounded-lg bg-white">
-            <option value="STAFF">Staff</option>
-            <option value="BOARD_MEMBER">Board Member</option>
-            <option value="ADMIN">Admin</option>
+          <select 
+            {...register("systemRole")} 
+            className="w-full border p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 outline-none"
+          >
+            {allowedRoles.map((role) => (
+                <option key={role} value={role}>
+                    {role.replace('_', ' ')}
+                </option>
+            ))}
           </select>
         </div>
 
@@ -130,7 +135,7 @@ const EditUser = () => {
           <label className="block text-sm font-semibold text-slate-700 mb-2">Designation</label>
           <select 
             {...register("designationId", { required: true })} 
-            className="w-full border border-slate-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
+            className="w-full border border-slate-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 outline-none"
           >
             {designations.map(d => (
               <option key={d.id} value={d.id}>{d.name}</option>
@@ -142,7 +147,7 @@ const EditUser = () => {
           <label className="block text-sm font-semibold text-slate-700 mb-2">Department</label>
           <select 
             {...register("departmentId", { required: true })} 
-            className="w-full border border-slate-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
+            className="w-full border border-slate-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 outline-none"
           >
             {depts.map(d => (
               <option key={d.id} value={d.id}>{d.name}</option>
@@ -156,7 +161,7 @@ const EditUser = () => {
         </div>
         
         <div className="md:col-span-2 pt-4">
-          <button type="submit" disabled={isSubmitting} className="w-full bg-teal-600 text-white py-3 rounded-xl hover:bg-teal-700 font-bold flex justify-center gap-2">
+          <button type="submit" disabled={isSubmitting} className="w-full bg-teal-600 text-white py-3 rounded-xl hover:bg-teal-700 font-bold flex justify-center gap-2 items-center disabled:opacity-70">
             {isSubmitting ? <Loader2 className="animate-spin" /> : <><Save size={20} /> Save Changes</>}
           </button>
         </div>

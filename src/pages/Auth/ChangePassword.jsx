@@ -16,8 +16,8 @@ const ChangePassword = () => {
   const onSubmit = async (data) => {
     try {
       await endpoints.auth.changePassword({
-        oldPassword: data.oldPassword,
-        newPassword: data.newPassword
+       currentPassword: data.oldPassword,
+        newPassword : data.newPassword
       });
       toast.success('Password updated successfully. Please login again.');
       

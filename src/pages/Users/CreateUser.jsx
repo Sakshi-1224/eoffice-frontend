@@ -8,13 +8,28 @@ const CreateUser = () => {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm();
   const [depts, setDepts] = useState([]);
   const [designations, setDesignations] = useState([]);
+  
+  // 🟢 NEW: State to store allowed roles fetched from backend
+  const [allowedRoles, setAllowedRoles] = useState([]); 
 
-  // Strong Password Regex: At least 8 chars, 1 Uppercase, 1 Lowercase, 1 Number, 1 Special Char
   const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
   useEffect(() => {
+    // 1. Fetch Departments
     endpoints.users.getDepartments().then(res => setDepts(res.data.data));
+    
+    // 2. Fetch Designations
     endpoints.users.getDesignations().then(res => setDesignations(res.data.data));
+
+    // 🟢 3. FETCH CONSTANTS (ROLES)
+    // The backend decides here if 'ADMIN' should be included or not
+    endpoints.common.constants().then(res => {
+        // res.data.data.ROLES is an object { ADMIN: 'ADMIN', STAFF: 'STAFF'... }
+        // We convert it to an array of values ['ADMIN', 'STAFF']
+        const rolesObj = res.data.data.ROLES;
+        setAllowedRoles(Object.values(rolesObj));
+    }).catch(err => console.error("Failed to load roles", err));
+
   }, []);
 
   const onSubmit = async (data) => {
@@ -24,7 +39,6 @@ const CreateUser = () => {
       reset();
     } catch (e) { 
       toast.error(e.response?.data?.message || 'Registration failed');
-      console.error(e); 
     }
   };
 
@@ -41,6 +55,9 @@ const CreateUser = () => {
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* ... (Full Name, Phone, Password, Email inputs remain unchanged) ... */}
+        
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
           <input 
@@ -98,13 +115,19 @@ const CreateUser = () => {
            {errors.email && <span className="text-xs text-red-500 mt-1">{errors.email.message}</span>}
         </div>
 
-        {/* ... Rest of the form (System Role, Designation, Dept) remains same ... */}
+        {/* 🟢 UPDATE: Dynamic System Role Dropdown */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">System Role</label>
-          <select {...register("systemRole", { required: true })} className="w-full border border-slate-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 outline-none">
-            <option value="STAFF">Staff</option>
-            <option value="BOARD_MEMBER">Board Member</option>
-            <option value="ADMIN">Admin</option>
+          <select 
+            {...register("systemRole", { required: true })} 
+            className="w-full border border-slate-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 outline-none"
+          >
+            <option value="">Select Role</option>
+            {allowedRoles.map((role) => (
+                <option key={role} value={role}>
+                    {role.replace('_', ' ')} {/* Formats BOARD_MEMBER to BOARD MEMBER */}
+                </option>
+            ))}
           </select>
         </div>
 

@@ -33,9 +33,6 @@ const ManageUsers = () => {
             <p className="text-sm text-slate-500">View and edit system users.</p>
           </div>
         </div>
-        <Link to="/users/create" className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors shadow-md shadow-teal-100">
-          + Register New
-        </Link>
       </div>
 
       {/* Table */}
