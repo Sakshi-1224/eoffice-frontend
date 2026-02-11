@@ -43,7 +43,7 @@ const Search = () => {
             <div className="relative">
               <SearchIcon className="absolute left-3 top-3.5 text-slate-400" size={18} />
               <input 
-                {...register('keyword')} 
+                {...register('text')} 
                 placeholder="Search Subject or File Number..." 
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
               />

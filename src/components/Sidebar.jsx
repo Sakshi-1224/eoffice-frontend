@@ -27,11 +27,11 @@ const canCreateFiles = isStaff || isAdmin || isBoardMember;
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-        
-        <Link to="/dashboard" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive('/dashboard') ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'hover:bg-slate-800 hover:text-white'}`}>
+    
+        {/* <Link to="/dashboard" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive('/dashboard') ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'hover:bg-slate-800 hover:text-white'}`}>
           <LayoutDashboard size={20} />
           <span className="font-medium">Dashboard</span>
-        </Link>
+        </Link> */}
 
        {/* 🟢 UPDATE: Show 'Created Files' to Board Members too */}
         {canCreateFiles && (

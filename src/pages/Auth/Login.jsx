@@ -18,7 +18,7 @@ const Login = () => {
       // Direct login attempt
       const success = await login(data);
       if (success) {
-        navigate('/');
+        navigate('/files/inbox');
       } else {
         // If login returns false (handled by context mostly, but for safety)
         setError('root', { 

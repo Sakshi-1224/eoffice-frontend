@@ -10,23 +10,25 @@ const Layout = () => {
   const location = useLocation();
 
   const navItems = [
-    { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { label: 'Created Files', path: '/files/created', icon: PenTool },
+    { label: 'Create File', path: '/files/create', icon: FilePlus },
+    { label: 'Draft', path: '/files/created', icon: PenTool },
     { label: 'Inbox', path: '/files/inbox', icon: Inbox },
-    { label: 'Outbox', path: '/files/outbox', icon: Send },
+    { label: 'Sent Files', path: '/files/outbox', icon: Send },
     { label: 'Search Files', path: '/search', icon: Search },
     { label: 'Change Password', path: '/auth/change-password', icon: Lock }
   ];
 
   
-    navItems.push({ label: 'Initiate File', path: '/files/create', icon: FilePlus });
+  //  navItems.push({ label: 'Initiate File', path: '/files/create', icon: FilePlus });
   
   
   if (user?.systemRole === 'ADMIN') {
     navItems.push({ label: 'Register User', path: '/users/create', icon: UserPlus });
-    navItems.push({ label: 'Manage Users', path: '/users', icon: Users });
-     
   }
+   if (user?.systemRole === 'ADMIN' || user.designation === 'PRESIDENT') {
+    navItems.push({ label: 'Manage Users', path: '/users', icon: Users });
+  }
+
   navItems.push({ label: 'Set PIN', path: '/auth/set-pin', icon: KeyRound });
 
   return (
