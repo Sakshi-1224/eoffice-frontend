@@ -6,6 +6,8 @@ import { Eye, Loader2, Send, ArrowRight, MessageSquare } from 'lucide-react';
 const Outbox = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false); // 🟢 Added
+  const [nextCursor, setNextCursor] = useState(null);    // 🟢 Added
   const navigate = useNavigate();
 const dateOnlyOptions = {
       timeZone: "Asia/Kolkata",
@@ -14,14 +16,24 @@ const dateOnlyOptions = {
     fetchOutbox();
   }, []);
 
-  const fetchOutbox = async () => {
+  const fetchOutbox = async (cursor = null) => {
     try {
-      const { data } = await endpoints.files.outbox();
-      setFiles(data.data);
+     cursor ? setLoadingMore(true) : setLoading(true);
+
+      const { data } = await endpoints.files.outbox(10, cursor);
+      
+      if (cursor) {
+        setFiles(prev => [...prev, ...data.data]);
+      } else {
+        setFiles(data.data);
+      }
+      
+      setNextCursor(data.nextCursor);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -122,6 +134,19 @@ const dateOnlyOptions = {
             </table>
           </div>
         )}
+         {/* 🟢 NEW: Load More Button */}
+        {nextCursor && (
+          <div className="p-4 border-t border-slate-100 flex justify-center bg-slate-50">
+            <button
+              onClick={() => fetchOutbox(nextCursor)}
+              disabled={loadingMore}
+              className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white border border-teal-700 text-slate-700 rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium shadow-sm transition-all"
+            >
+              {loadingMore ? <Loader2 className="animate-spin" size={16} /> : "Load More"}
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );

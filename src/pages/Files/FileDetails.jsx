@@ -157,7 +157,7 @@ const { register, handleSubmit, setValue, formState: { isSubmitting, errors } } 
 
       await endpoints.workflow.move(id, payload);
       toast.success('File forwarded successfully');
-      navigate('/files/inbox');
+      navigate('/files/outbox');
     } catch (e) { 
       toast.error(e.response?.data?.message || "Action failed");
     }
