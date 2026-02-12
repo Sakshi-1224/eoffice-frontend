@@ -79,8 +79,14 @@ export const endpoints = {
     create: (formData) => api.post('/files', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-    inbox: () => api.get('/files/inbox'),
-    outbox: () => api.get('/files/outbox'),
+   // 🟢 UPDATED: Accept limit and cursor
+    inbox: (limit = 10, cursor = null) => 
+      api.get(`/files/inbox?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`),
+      
+    // 🟢 UPDATED: Accept limit and cursor
+    outbox: (limit = 10, cursor = null) => 
+      api.get(`/files/outbox?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`),
+    
     search: (queryString) => api.get(`/files/search?${queryString}`),
     stats: () => api.get('/files/stats'),
     history: (id) => api.get(`/files/${id}/history`),

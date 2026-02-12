@@ -7,6 +7,8 @@ import { Eye, Loader2, Inbox as InboxIcon, User } from 'lucide-react';
 const Inbox = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false); // New state for button loader
+  const [nextCursor, setNextCursor] = useState(null);    // New state for cursor
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -14,15 +16,22 @@ const Inbox = () => {
     fetchInbox();
   }, []);
 
-  const fetchInbox = async () => {
+  const fetchInbox = async (cursor = null) => {
     try {
-      const { data } = await endpoints.files.inbox();
+      if (cursor) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      const { data } = await endpoints.files.inbox(10, cursor);
       const myDrafts = data.data.filter(f => f.status != 'DRAFT');
-      // 🟢 FIX: Removed the .filter() logic. 
-      // The backend already ensures we only get files currently assigned to us.
-      // This ensures we see files even if we created them originally (e.g., returned files).
-      setFiles(myDrafts); 
 
+      if(cursor){
+      setFiles(prev => [...prev, ...myDrafts]); 
+      }else{
+        setFiles(myDrafts);
+      }
+      setNextCursor(data.nextCursor);
     } catch (error) {
       console.error(error);
     } finally {
@@ -64,6 +73,7 @@ const Inbox = () => {
               <thead>
                 <tr className="text-xs font-bold uppercase tracking-wider text-white">
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30 rounded-tl-lg">File Number</th>
+<th className="p-4 bg-teal-600 border-r border-teal-500/30">Created On</th>
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Subject</th>
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Sent By</th>
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Last Remark</th>
@@ -78,6 +88,9 @@ const Inbox = () => {
                   return (
                     <tr key={file.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="p-4 font-mono text-sm text-teal-700 font-medium">{file.fileNumber}</td>
+   
+<td className="p-4 font-medium text-slate-800">{file.createdAt}</td>
+
                       <td className="p-4 font-medium text-slate-800">{file.subject}</td>
                       
                       <td className="p-4 text-sm text-slate-600">
@@ -101,6 +114,18 @@ const Inbox = () => {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        {/* 🟢 NEW: Load More Button */}
+        {nextCursor && (
+          <div className="p-4 bg-teal-600 text-white border-t border-slate-100 flex justify-center bg-slate-50">
+            <button
+              onClick={() => fetchInbox(nextCursor)}
+              disabled={loadingMore}
+              className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white border border-teal-700 text-slate-700 rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium shadow-sm transition-all"
+            >
+              {loadingMore ? <Loader2 className="animate-spin" size={16} /> : "Load More"}
+            </button>
           </div>
         )}
       </div>
