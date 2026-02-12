@@ -83,20 +83,53 @@ const OutboxFileDetails = () => {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm text-slate-600 bg-slate-50 p-6 rounded-xl border border-slate-100">
-               <div>
-                 <span className="font-semibold text-slate-800 block mb-1">Current Holder</span>
-                 <div className="flex items-center gap-2">
-                    <User size={16} className="text-teal-500"/>
-                    {file.currentHolder}
-                 </div>
-               </div>
-               <div>
-                 <span className="font-semibold text-slate-800 block mb-1">Current Designation</span> 
-                 {getDesignationName(file.currentPosition?.designation)}
-               </div>
-            </div>
+           {/* METADATA GRID - Updated to show all details */}
+<div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4 text-sm text-slate-600 bg-slate-50 p-6 rounded-xl border border-slate-100">
+  
+  {/* 1. Created Date */}
+  <div>
+    <span className="font-semibold text-slate-800 block mb-1 text-xs uppercase tracking-wider">Created On</span>
+    <span className="font-mono">{file.createdAt}</span>
+  </div>
 
+  {/* 2. File Type */}
+  <div>
+    <span className="font-semibold text-slate-800 block mb-1 text-xs uppercase tracking-wider">File Type</span>
+    <span className="bg-slate-200 text-slate-700 px-2 py-1 rounded text-xs font-bold">
+      {file.type}
+    </span>
+  </div>
+
+  {/* 3. Priority (With Colors) */}
+  <div>
+    <span className="font-semibold text-slate-800 block mb-1 text-xs uppercase tracking-wider">Priority</span>
+    <span className={`px-2 py-1 rounded text-xs font-bold ${
+      file.priority === 'HIGH' ? 'bg-red-100 text-red-700' :
+      file.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
+      'bg-green-100 text-green-700'
+    }`}>
+      {file.priority}
+    </span>
+  </div>
+
+  {/* 4. Current Designation (Existing) */}
+  <div>
+    <span className="font-semibold text-slate-800 block mb-1 text-xs uppercase tracking-wider">Current Holder</span>
+    <div className="flex flex-col">
+      <span className="font-medium text-slate-900">{file.currentHolder}</span>
+      <span className="text-xs text-slate-500">{getDesignationName(file.currentPosition?.designation)}</span>
+    </div>
+  </div>
+
+  {/* 5. Description (Full Width) */}
+  <div className="col-span-2 md:col-span-4 border-t border-slate-200 pt-4 mt-2">
+    <span className="font-semibold text-slate-800 block mb-2 text-xs uppercase tracking-wider">Description / Note</span>
+    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+      {file.description || "No description provided."}
+    </p>
+  </div>
+
+</div>
             {/* Attachments (Read Only) */}
             <div className="mt-8">
               <h4 className="font-bold text-slate-700 flex items-center gap-2 border-b pb-2 mb-4">
@@ -138,7 +171,7 @@ const OutboxFileDetails = () => {
                     <h4 className="font-bold text-slate-800 text-sm">{item.action}</h4>
                     <div className="text-xs text-slate-600 mt-2 flex flex-col gap-1">
                       <div className="flex items-center gap-1"><User size={12} /> {item.from}</div>
-                      {item.to !== 'System' && <div className="flex items-center gap-1 font-medium"><User size={12} /> {item.to}</div>}
+                      {item.to !== 'System' && item.to !== item.from && <div className="flex items-center gap-1 font-medium"><User size={12} /> {item.to}</div>}
                     </div>
                     {item.remarks && <p className="text-xs text-slate-500 italic mt-2 bg-slate-50 p-2 rounded border border-slate-100">"{item.remarks}"</p>}
                   </div>

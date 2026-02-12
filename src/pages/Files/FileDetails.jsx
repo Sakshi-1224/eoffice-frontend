@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { 
   Paperclip, ArrowRight, History, User, Download, 
   Trash2, PlusCircle, Loader2, ShieldCheck, 
-  CheckCircle2, Lock, Send, KeyRound, ShieldAlert
+  CheckCircle2, Lock, Send, KeyRound, ShieldAlert, FileText, ChevronRight, Search
 } from 'lucide-react';
 
 const FileDetails = () => {
@@ -18,21 +18,49 @@ const FileDetails = () => {
   
   const [data, setData] = useState(null);
   const [users, setUsers] = useState([]);
-  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   // UI Toggles
   const [showPinInput, setShowPinInput] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   
   // Forward Form
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { isSubmitting, errors } 
-  } = useForm({
+const { register, handleSubmit, setValue, formState: { isSubmitting, errors } } = useForm({
     defaultValues: { action: 'FORWARD', receiverId: '' }
   });
 
   const pinRef = useRef(null);
+// useEffect(() => { 
+//     // Only fetch file history initially. Do NOT fetch all users.
+//     endpoints.files.history(id)
+//       .then((res) => setData(res.data.data))
+//       .catch(() => toast.error("Failed to load details"));
+//   }, [id]);
+
+  const loadData = () => {
+    endpoints.files.history(id)
+      .then((res) => setData(res.data.data))
+      .catch(() => toast.error("Failed to load details"));
+  };
+
+  useEffect(() => { loadData(); }, [id]);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setUsers([]);
+      return;
+    }
+    const delay = setTimeout(() => {
+      setIsSearching(true);
+      endpoints.users.getAll(`?search=${searchTerm}`)
+        .then(res => setUsers(res.data.data))
+        .catch(console.error)
+        .finally(() => setIsSearching(false));
+    }, 500); // 500ms wait time
+
+    return () => clearTimeout(delay);
+  }, [searchTerm]);
+
 
   const getDesignationName = (val) => {
     if (!val) return '';
@@ -40,17 +68,17 @@ const FileDetails = () => {
     return val?.name || ''; 
   };
 
-  const loadData = () => {
-    Promise.all([
-      endpoints.files.history(id),
-      endpoints.users.getAll() 
-    ]).then(([historyRes, usersRes]) => {
-      setData(historyRes.data.data);
-      setUsers(usersRes.data.data);
-    }).catch(err => toast.error("Failed to load details"));
-  };
+  // const loadData = () => {
+  //   Promise.all([
+  //     endpoints.files.history(id),
+  //     endpoints.users.getAll() 
+  //   ]).then(([historyRes, usersRes]) => {
+  //     setData(historyRes.data.data);
+  //     setUsers(usersRes.data.data);
+  //   }).catch(err => toast.error("Failed to load details"));
+  // };
 
-  useEffect(() => { loadData(); }, [id]);
+  // useEffect(() => { loadData(); }, [id]);
 
   if (!data) return <div className="p-10 text-center text-teal-600 font-medium">Loading details...</div>;
   const { file, history } = data;
@@ -64,7 +92,7 @@ const FileDetails = () => {
   const isVerified = file.isVerified;
 
   // 1. Board Members/President MUST verify (even if draft)
-  const requiresVerification = (isBoardMember || isPresident) && !isVerified;
+  const requiresVerification = (isBoardMember || isPresident || isStaff) && !isVerified;
 
   // 2. Can they verify? (Only if PIN is set)
   const isPinSet = user?.isPinSet; 
@@ -79,17 +107,41 @@ const FileDetails = () => {
     }
 
     setIsVerifying(true);
+    toast.dismiss();
     try {
         await endpoints.workflow.move(id, {
             action: 'VERIFY',
-            remarks: 'Verified via PIN',
+            remarks: `Verified via PIN by ${user?.fullName || 'Unknown User'}`,
             pin: pin
         });
         toast.success("Verification Successful!");
         setShowPinInput(false); 
+        setData(prevData => {
+            if (!prevData) return null;
+            return {
+                ...prevData,
+                file: {
+                    ...prevData.file,
+                    isVerified: true // Force the UI to see it as verified
+                }
+            };
+        });
         loadData(); 
     } catch (e) {
-        toast.error(e.response?.data?.message || "Verification Failed");
+       const errorMsg = e.response?.data?.message || "Verification Failed";
+        
+        // ⚡ HANDLE "ALREADY VERIFIED" (Fixes double-click error showing failure)
+        if (errorMsg.toLowerCase().includes("already verified")) {
+             toast.success("Verification Successful!");
+             setShowPinInput(false);
+             // Update UI immediately
+             setData(prevData => ({
+                ...prevData,
+                file: { ...prevData.file, isVerified: true }
+             }));
+        } else {
+             toast.error(errorMsg);
+        }
     } finally {
         setIsVerifying(false);
     }
@@ -159,10 +211,52 @@ const FileDetails = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm text-slate-600 bg-slate-50 p-6 rounded-xl border border-slate-100">
-             <p><span className="font-semibold text-slate-800 block mb-1">Current Holder</span> {file.currentHolder}</p>
-             <p><span className="font-semibold text-slate-800 block mb-1">Designation</span> {getDesignationName(file.currentPosition?.designation)}</p>
-          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4 text-sm text-slate-600 bg-slate-50 p-6 rounded-xl border border-slate-100">
+  
+  {/* 1. Created Date */}
+  <div>
+    <span className="font-semibold text-slate-800 block mb-1 text-xs uppercase tracking-wider">Created On</span>
+    <span className="font-mono">{file.createdAt}</span>
+  </div>
+
+  {/* 2. File Type */}
+  <div>
+    <span className="font-semibold text-slate-800 block mb-1 text-xs uppercase tracking-wider">File Type</span>
+    <span className="bg-slate-200 text-slate-700 px-2 py-1 rounded text-xs font-bold">
+      {file.type}
+    </span>
+  </div>
+
+  {/* 3. Priority (With Colors) */}
+  <div>
+    <span className="font-semibold text-slate-800 block mb-1 text-xs uppercase tracking-wider">Priority</span>
+    <span className={`px-2 py-1 rounded text-xs font-bold ${
+      file.priority === 'HIGH' ? 'bg-red-100 text-red-700' :
+      file.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
+      'bg-green-100 text-green-700'
+    }`}>
+      {file.priority}
+    </span>
+  </div>
+
+  {/* 4. Current Designation (Existing) */}
+  <div>
+    <span className="font-semibold text-slate-800 block mb-1 text-xs uppercase tracking-wider">Current Holder</span>
+    <div className="flex flex-col">
+      <span className="font-medium text-slate-900">{file.currentHolder}</span>
+      <span className="text-xs text-slate-500">{getDesignationName(file.currentPosition?.designation)}</span>
+    </div>
+  </div>
+
+  {/* 5. Description (Full Width) */}
+  <div className="col-span-2 md:col-span-4 border-t border-slate-200 pt-4 mt-2">
+    <span className="font-semibold text-slate-800 block mb-2 text-xs uppercase tracking-wider">Description / Note</span>
+    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+      {file.description || "No description provided."}
+    </p>
+  </div>
+
+</div>
 
           <div className="mt-8">
             <h4 className="font-bold text-slate-700 flex items-center gap-2 border-b pb-2 mb-4">
@@ -274,51 +368,58 @@ const FileDetails = () => {
                     )}
                 </div>
 
-                <form onSubmit={handleSubmit(onForwardSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="col-span-1 hidden">
-                        <select {...register("action")} disabled className="w-full"><option value="FORWARD">Forward</option></select>
+               <form onSubmit={handleSubmit(onForwardSubmit)} className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1 ml-1">Recipient Search</label>
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-teal-500" size={18}/>
+                            <input 
+                                type="text" 
+                                placeholder="Type name to search..." 
+                                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            {isSearching && <Loader2 className="absolute right-3 top-3.5 animate-spin text-teal-500" size={18}/>}
+                        </div>
+                        
+                        {/* Custom Dropdown Results */}
+                        <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden shadow-sm max-h-48 overflow-y-auto bg-white">
+                            {users.length === 0 && searchTerm.length > 0 && !isSearching && <p className="p-3 text-sm text-slate-400 text-center">No users found</p>}
+                            {users.length === 0 && searchTerm.length === 0 && <p className="p-3 text-xs text-slate-400 text-center bg-slate-50">Type above to find officials</p>}
+                            
+                            {users.filter(u => u.id !== user.id).map(u => (
+                                <label key={u.id} className="flex items-center gap-3 p-3 hover:bg-teal-50 cursor-pointer border-b border-slate-50 last:border-0 transition-colors">
+                                    <input 
+                                        type="radio" 
+                                        value={u.id} 
+                                        {...register('receiverId', { required: "Recipient is required" })}
+                                        className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                                    />
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-800">{u.full_name}</p>
+                                        <p className="text-xs text-slate-500">{u.designation?.name || 'Staff'}</p>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                        {errors.receiverId && <p className="text-red-500 text-xs mt-1 ml-1">{errors.receiverId.message}</p>}
                     </div>
 
-                    <div className="col-span-2 md:col-span-1">
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Recipient</label>
-                        <select 
-                            {...register("receiverId", { required: "Please select a recipient" })} 
-                            className="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-teal-500"
-                        >
-                        <option value="">Select Official</option>
-                        {availableRecipients.map(u => (
-                            <option key={u.id} value={u.id}>
-                            {u.full_name} ({getDesignationName(u.designation) || 'Staff'})
-                            </option>
-                        ))}
-                        </select>
-                        {errors.receiverId && <p className="text-red-500 text-xs mt-1">{errors.receiverId.message}</p>}
-                    </div>
-
-                    <div className="col-span-2">
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Remarks</label>
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1 ml-1">Remarks</label>
                         <textarea 
-                        {...register("remarks", { required: "Remarks are required" })} rows="3" 
-                        className="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-teal-500"
-                        placeholder="Enter comments..."
+                            {...register('remarks', { required: "Remarks are required", minLength: { value: 3, message: "Too short" } })}
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none"
+                            rows="3"
+                            placeholder="Add comments for the receiver..."
                         ></textarea>
-                        {errors.remarks && <p className="text-red-500 text-xs mt-1">{errors.remarks.message}</p>}
+                        {errors.remarks && <p className="text-red-500 text-xs mt-1 ml-1">{errors.remarks.message}</p>}
                     </div>
 
-                    <div className="col-span-2 pt-2">
-                        <button 
-                            type="submit" 
-                            disabled={isSubmitting} 
-                            className="w-full bg-teal-600 text-white py-3.5 rounded-xl hover:bg-teal-700 font-bold shadow-md shadow-teal-200 transition-all disabled:opacity-50 flex justify-center gap-2 items-center"
-                        >
-                        {isSubmitting ? <Loader2 className="animate-spin" /> : (
-                            <>
-                                <Send size={18}/>
-                                {isDraft ? "Initiate & Send" : "Forward File"}
-                            </>
-                        )}
-                        </button>
-                    </div>
+                    <button type="submit" disabled={isSubmitting} className="w-full bg-teal-600 text-white font-bold py-4 rounded-xl hover:bg-teal-700 shadow-lg shadow-teal-200 transition-all flex justify-center gap-2 items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                        {isSubmitting ? <Loader2 className="animate-spin"/> : <><Send size={18}/> Forward File</>}
+                    </button>
                 </form>
             </div>
         )}
@@ -340,7 +441,7 @@ const FileDetails = () => {
                   <h4 className="font-bold text-slate-800 text-sm">{item.action}</h4>
                   <div className="text-xs text-slate-600 mt-2 flex flex-col gap-1">
                     <div className="flex items-center gap-1"><User size={12} /> {item.from}</div>
-                    {item.to !== 'System' && <div className="flex items-center gap-1 font-medium"><User size={12} /> {item.to}</div>}
+                    {item.to !== 'System'  && item.to !== item.from && <div className="flex items-center gap-1 font-medium"><User size={12} /> {item.to}</div>}
                   </div>
                   {item.remarks && <p className="text-xs text-slate-500 italic mt-2 bg-slate-50 p-2 rounded border border-slate-100">"{item.remarks}"</p>}
                 </div>

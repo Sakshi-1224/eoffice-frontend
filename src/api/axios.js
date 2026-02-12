@@ -64,7 +64,7 @@ export const endpoints = {
   },
   users: {
     create: (data) => api.post('/users', data),
-    getAll: () => api.get('/users'),
+ getAll: (query = '') => api.get(`/users${query}`),
     update: (id, data) => api.patch(`/users/${id}`, data),
     
     // Dropdowns

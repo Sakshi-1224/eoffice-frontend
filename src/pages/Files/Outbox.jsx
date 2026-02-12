@@ -7,7 +7,9 @@ const Outbox = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
+const dateOnlyOptions = {
+      timeZone: "Asia/Kolkata",
+    };
   useEffect(() => {
     fetchOutbox();
   }, []);
@@ -57,6 +59,7 @@ const Outbox = () => {
               <thead>
                 <tr className="text-xs font-bold uppercase tracking-wider text-white">
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30 rounded-tl-lg">File Number</th>
+                   <th className="p-4 bg-teal-600 border-r border-teal-500/30 rounded-tl-lg">Created On</th>
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Subject</th>
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Currently With</th>
                   
@@ -72,6 +75,10 @@ const Outbox = () => {
                     <td className="p-4 font-mono text-sm text-teal-700 font-medium">
                       {file.fileNumber}
                     </td>
+                      <td className="p-4 font-medium text-slate-800 max-w-xs truncate" title={file.createdAt}>
+                      {(file.createdAt)}
+                    </td>
+                    
                     <td className="p-4 font-medium text-slate-800 max-w-xs truncate" title={file.subject}>
                       {file.subject}
                     </td>
