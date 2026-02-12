@@ -21,7 +21,7 @@ const CreatedFiles = () => {
       
       // 🟢 FIX: Filter strictly by Creator ID
       // Show ONLY if I created it.
-      const myDrafts = data.data.filter(f => f.creatorId === user.id   && f.status === 'DRAFT');
+      const myDrafts = data.data.filter(f => f.status === 'DRAFT');
       
       setFiles(myDrafts);
     } catch (error) {

@@ -17,11 +17,11 @@ const Inbox = () => {
   const fetchInbox = async () => {
     try {
       const { data } = await endpoints.files.inbox();
-      
+      const myDrafts = data.data.filter(f => f.status != 'DRAFT');
       // 🟢 FIX: Removed the .filter() logic. 
       // The backend already ensures we only get files currently assigned to us.
       // This ensures we see files even if we created them originally (e.g., returned files).
-      setFiles(data.data); 
+      setFiles(myDrafts); 
 
     } catch (error) {
       console.error(error);

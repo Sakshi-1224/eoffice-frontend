@@ -17,7 +17,7 @@ const { updateUser } = useAuth(); // 2. Get the helper
       });
       updateUser({ isPinSet: true });
       toast.success('Security PIN set successfully!');
-      navigate('/');
+      navigate('/files/inbox');
     } catch (error) {
       console.error(error);
       // Handles 401 (Invalid Password) or 400 (Same PIN) errors automatically
