@@ -18,6 +18,7 @@ import CreateUser from './pages/Users/CreateUser';
 import ManageUsers from './pages/Users/ManageUsers'; // 1. Import List Page
 import EditUser from './pages/Users/EditUser';       // 2. Import Edit Page (Created in previous step)
 import OutboxFileDetails from './pages/Files/OutboxFileDetails';
+import ForgotPassword from './pages/Auth/ForgotPassword';
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -35,6 +36,7 @@ function App() {
         <Toaster position="top-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} /> 
           
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />

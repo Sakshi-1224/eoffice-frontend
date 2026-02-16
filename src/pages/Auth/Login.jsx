@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import banner from '../../assets/banner.jpg';
-
+import gradient from '../../assets/gradient.png';
+import { Link } from 'react-router-dom';
 const LOGO_URL = logo; 
 const BANNER = banner;
 
@@ -36,8 +37,12 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001f5c] via-[#003d82] to-[#005bb5] flex flex-col items-center justify-center p-4 font-sans text-white">
-      
+ <div className="relative overflow-hidden min-h-screen flex flex-col items-center justify-center p-4 font-sans text-slate-800">
+  <img  
+  src={gradient} 
+  alt="Background" 
+  className="absolute inset-0 w-full h-full object-cover -z-10" 
+/>
       <div className="absolute top-6 flex flex-col items-center animate-fade-in-down z-10">
         <img 
           src={LOGO_URL} 
@@ -86,7 +91,7 @@ const Login = () => {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="group">
-              <label className="block text-xs font-medium text-white-300 mb-1.5 ml-1">LOGIN ID / PHONE</label>
+              <label className="block text-xs font-medium text-white mb-1.5 ml-1">LOGIN ID / PHONE</label>
               <input 
                 {...register("phoneNumber", { 
                   required: "Phone number is required",
@@ -102,7 +107,12 @@ const Login = () => {
             </div>
             
             <div className="group">
-              <label className="block text-xs font-medium text-white-300 mb-1.5 ml-1">PASSWORD</label>
+              <div className="flex justify-between items-center mb-1.5 ml-1">
+              <label className="block text-xs font-medium text-white mb-1.5 ml-1">PASSWORD</label>
+              <Link to="/forgot-password" className="text-xs text-white hover:text-blue-300 transition-colors">
+      Forgot Password?
+    </Link>
+  </div>
               <input 
                 type="password"
                 {...register("password", { required: "Password is required" })}
@@ -122,7 +132,7 @@ const Login = () => {
           </form>
 
           <div className="mt-8 text-center border-t border-white/5 pt-4">
-            <p className="text-xs text-blue-400/60">
+            <p className="text-xs text-white/60">
               © 2026 Maharashtra Mandal Raipur.
             </p>
           </div>

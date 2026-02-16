@@ -40,8 +40,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    
     // If Backend says "Unauthorized" (401), force logout
     if (error.response?.status === 401) {
+      const requestUrl = error.config?.url || '';
+
+      // 🟢 THE FIX: Do not auto-logout if the 401 is specifically from 
+      // the set-pin or change-password endpoints. Let the component handle it.
+      if (requestUrl.includes('/auth/set-pin') || requestUrl.includes('/auth/change-password')) {
+        return Promise.reject(error);
+      }
       // Prevent infinite loops if already on login page
       if (!window.location.pathname.includes('/login')) {
         localStorage.removeItem('user');
@@ -61,6 +69,8 @@ export const endpoints = {
     // Updated key names to match backend DTOs
     changePassword: (data) => api.post('/auth/change-password', data), 
     setPin: (data) => api.post('/auth/set-pin', data),
+    forgotPassword: (data) => api.post('/auth/forgot-password', data),
+    resetPassword: (data) => api.post('/auth/reset-password', data),
   },
   users: {
     create: (data) => api.post('/users', data),
