@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { UserCog, Loader2, Save } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 const EditUser = () => {
   const { id } = useParams();
@@ -12,50 +13,46 @@ const EditUser = () => {
   const { user: currentUser, updateUser } = useAuth();
   
   const { register, handleSubmit, setValue, formState: { isSubmitting } } = useForm();
-  const [loading, setLoading] = useState(true);
-  const [depts, setDepts] = useState([]);
-  const [designations, setDesignations] = useState([]);
-  
-  // 🟢 1. State for dynamic roles
-  const [allowedRoles, setAllowedRoles] = useState([]);
 
+ const { data: depts = [] } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => (await endpoints.users.getDepartments()).data.data,
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+
+  const { data: designations = [] } = useQuery({
+    queryKey: ['designations'],
+    queryFn: async () => (await endpoints.users.getDesignations()).data.data,
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+
+  const { data: allowedRoles = [] } = useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => Object.values((await endpoints.common.constants()).data.data.ROLES),
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+
+  // 3. Fetch the specific User's Data
+  const { data: userToEdit, isLoading } = useQuery({
+    queryKey: ['userToEdit', id],
+    queryFn: async () => {
+      const res = await endpoints.users.getAll();
+      return res.data.data.find(u => u.id === parseInt(id));
+    }
+  });
+
+  // 4. When userToEdit finishes loading, populate the form!
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [deptRes, desigRes, usersRes, constantsRes] = await Promise.all([
-          endpoints.users.getDepartments(),
-          endpoints.users.getDesignations(),
-          endpoints.users.getAll(),
-          endpoints.common.constants() // 🟢 2. Fetch Allowed Roles
-        ]);
-        
-        setDepts(deptRes.data.data);
-        setDesignations(desigRes.data.data);
-        
-        // 🟢 3. Set Allowed Roles
-        const rolesObj = constantsRes.data.data.ROLES;
-        setAllowedRoles(Object.values(rolesObj));
-
-        const userToEdit = usersRes.data.data.find(u => u.id === parseInt(id));
-        
-        if (userToEdit) {
-          setValue('fullName', userToEdit.full_name);
-          setValue('phoneNumber', userToEdit.phone_number);
-          setValue('email', userToEdit.email);
-          setValue('systemRole', userToEdit.system_role);
-          setValue('designationId', userToEdit.designation?.id || userToEdit.designation_id);
-          setValue('departmentId', userToEdit.department?.id || userToEdit.department_id);
-          setValue('isActive', userToEdit.is_active);
-        }
-      } catch (error) {
-        console.error(error);
-        toast.error('Failed to load user data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [id, setValue]);
+    if (userToEdit) {
+      setValue('fullName', userToEdit.full_name);
+      setValue('phoneNumber', userToEdit.phone_number);
+      setValue('email', userToEdit.email);
+      setValue('systemRole', userToEdit.system_role);
+      setValue('designationId', userToEdit.designation?.id || userToEdit.designation_id);
+      setValue('departmentId', userToEdit.department?.id || userToEdit.department_id);
+      setValue('isActive', userToEdit.is_active);
+    }
+  }, [userToEdit, setValue]);
 
   const onSubmit = async (data) => {
     try {
@@ -86,7 +83,7 @@ const EditUser = () => {
     }
   };
 
-  if (loading) return <div className="p-10 text-center text-teal-600">Loading user data...</div>;
+  if (isLoading) return <div className="p-10 text-center text-teal-600">Loading user data...</div>;
 
   return (
     <div className="max-w-4xl mx-auto mt-10 bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in-up">

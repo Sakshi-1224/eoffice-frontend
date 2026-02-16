@@ -4,32 +4,20 @@ import { endpoints } from '../../api/axios';
 import toast from 'react-hot-toast';
 import { 
   Paperclip, History, User, Download, ArrowLeft,
-  ShieldCheck, Clock, FileText
+  ShieldCheck, Clock, FileText, Loader2
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import FileMovementTimeline from '../../components/FileMovementTimeline';
+import { useQuery } from '@tanstack/react-query'; // 1. Import useQuery
 const OutboxFileDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  const [data, setData] = useState(null);
-
-  // Helper: Safe Designation Accessor
+  const { user } = useAuth();
   const getDesignationName = (val) => {
     if (!val) return '';
     if (typeof val === 'string') return val;
     return val?.name || ''; 
   };
-
-  const loadData = () => {
-    // Only fetch history/details. No need to fetch all users since we can't forward.
-    endpoints.files.history(id)
-      .then((historyRes) => {
-        setData(historyRes.data.data);
-      })
-      .catch(err => toast.error("Failed to load details"));
-  };
-
-  useEffect(() => { loadData(); }, [id]);
 
   const handleDownload = async (type, identifier) => { 
     const toastId = toast.loading('Opening...');
@@ -45,9 +33,36 @@ const OutboxFileDetails = () => {
     } catch (err) { toast.error('Download failed', { id: toastId }); }
   };
 
-  if (!data) return <div className="p-10 text-center text-teal-600 font-medium">Loading details...</div>;
-  const { file, history } = data;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['outboxFileDetails', id],
+    queryFn: async () => {
+      const response = await endpoints.files.history(id);
+      return response.data.data;
+    },
+    // This tells React Query to check the backend every 10 seconds silently
+    refetchInterval: 30000, 
+  });
 
+  // 4. The Auto-Redirect Logic
+  useEffect(() => {
+    if (data && user) {
+      // If the backend says the file is now with the current user, it belongs in the Inbox!
+      // Check your backend payload to ensure 'currentHolder' matches 'user.fullName' or use an ID if available.
+      if (data.file.currentHolder === user.fullName) {
+        toast.success("This file has been returned to your Inbox!", {
+          icon: '📥',
+          duration: 5000
+        });
+        // Redirect them to the active file details page
+        navigate(`/files/${id}`, { replace: true }); 
+      }
+    }
+  }, [data, user, navigate, id]);
+
+  if (isLoading) return <div className="p-10 text-center flex justify-center text-teal-600 font-medium"><Loader2 className="animate-spin" /> Loading details...</div>;
+  if (error) return <div className="p-10 text-center text-red-500">Failed to load details.</div>;
+
+  const { file, history } = data;
   return (
     <div className="animate-fade-in-up max-w-7xl mx-auto">
       

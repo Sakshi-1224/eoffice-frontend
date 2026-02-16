@@ -3,35 +3,23 @@ import { endpoints } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Eye, Loader2, FilePlus, PenTool } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query'; 
 
 const CreatedFiles = () => {
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
+
   const navigate = useNavigate();
   const { user } = useAuth(); // Get current user
 
-  useEffect(() => {
-    fetchDrafts();
-  }, []);
-
-  const fetchDrafts = async () => {
-    try {
-      // Fetch 'inbox' (which simply means "Files currently with me")
+  // 2. THE TANSTACK WAY
+  const { data: files = [], isLoading } = useQuery({
+    queryKey: ['createdFiles'],
+    queryFn: async () => {
       const { data } = await endpoints.files.inbox();
-      
-      // 🟢 FIX: Filter strictly by Creator ID
-      // Show ONLY if I created it.
-      const myDrafts = data.data.filter(f => f.status === 'DRAFT');
-      
-      setFiles(myDrafts);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+      return data.data.filter(f => f.status === 'DRAFT');
     }
-  };
+  });
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex justify-center items-center h-64">
       <Loader2 className="animate-spin text-teal-600" size={32} />
     </div>

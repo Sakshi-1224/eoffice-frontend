@@ -2,42 +2,29 @@ import { useEffect, useState } from 'react';
 import { endpoints } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Loader2, Send, ArrowRight, MessageSquare } from 'lucide-react';
-
+import { useInfiniteQuery } from '@tanstack/react-query';
 const Outbox = () => {
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false); // 🟢 Added
-  const [nextCursor, setNextCursor] = useState(null);    // 🟢 Added
+   // 🟢 Added
   const navigate = useNavigate();
-const dateOnlyOptions = {
-      timeZone: "Asia/Kolkata",
-    };
-  useEffect(() => {
-    fetchOutbox();
-  }, []);
+const { 
+    data, 
+    isLoading, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfiniteQuery({
+    queryKey: ['outboxFiles'],
+    queryFn: async ({ pageParam = null }) => {
+      const response = await endpoints.files.outbox(10, pageParam);
+      return response.data;
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+  });
 
-  const fetchOutbox = async (cursor = null) => {
-    try {
-     cursor ? setLoadingMore(true) : setLoading(true);
+  // Flatten pages array
+  const files = data?.pages.flatMap(page => page.data) || [];
 
-      const { data } = await endpoints.files.outbox(10, cursor);
-      
-      if (cursor) {
-        setFiles(prev => [...prev, ...data.data]);
-      } else {
-        setFiles(data.data);
-      }
-      
-      setNextCursor(data.nextCursor);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex justify-center items-center h-64">
       <Loader2 className="animate-spin text-teal-600" size={32} />
     </div>
@@ -135,18 +122,17 @@ const dateOnlyOptions = {
           </div>
         )}
          {/* 🟢 NEW: Load More Button */}
-        {nextCursor && (
+       {hasNextPage && (
           <div className="p-4 border-t border-slate-100 flex justify-center bg-slate-50">
             <button
-              onClick={() => fetchOutbox(nextCursor)}
-              disabled={loadingMore}
-              className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white border border-teal-700 text-slate-700 rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium shadow-sm transition-all"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white border border-teal-700 rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium shadow-sm transition-all"
             >
-              {loadingMore ? <Loader2 className="animate-spin" size={16} /> : "Load More"}
+              {isFetchingNextPage ? <Loader2 className="animate-spin" size={16} /> : "Load More"}
             </button>
           </div>
         )}
-
       </div>
     </div>
   );

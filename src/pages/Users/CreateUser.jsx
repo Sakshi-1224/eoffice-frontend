@@ -3,34 +3,40 @@ import { useForm } from 'react-hook-form';
 import { endpoints } from '../../api/axios';
 import toast from 'react-hot-toast';
 import { UserPlus, Loader2, AlertTriangle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 const CreateUser = () => {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm();
-  const [depts, setDepts] = useState([]);
-  const [designations, setDesignations] = useState([]);
-  
-  // 🟢 NEW: State to store allowed roles fetched from backend
-  const [allowedRoles, setAllowedRoles] = useState([]); 
-
   const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
-  useEffect(() => {
-    // 1. Fetch Departments
-    endpoints.users.getDepartments().then(res => setDepts(res.data.data));
-    
-    // 2. Fetch Designations
-    endpoints.users.getDesignations().then(res => setDesignations(res.data.data));
+ const { data: depts = [] } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
+      const res = await endpoints.users.getDepartments();
+      return res.data.data;
+    },
+    staleTime: 1000 * 60 * 60 * 24, // 24 hours in milliseconds
+  });
 
-    // 🟢 3. FETCH CONSTANTS (ROLES)
-    // The backend decides here if 'ADMIN' should be included or not
-    endpoints.common.constants().then(res => {
-        // res.data.data.ROLES is an object { ADMIN: 'ADMIN', STAFF: 'STAFF'... }
-        // We convert it to an array of values ['ADMIN', 'STAFF']
-        const rolesObj = res.data.data.ROLES;
-        setAllowedRoles(Object.values(rolesObj));
-    }).catch(err => console.error("Failed to load roles", err));
+  // 3. Fetch Designations (Cached for 24 hours)
+  const { data: designations = [] } = useQuery({
+    queryKey: ['designations'],
+    queryFn: async () => {
+      const res = await endpoints.users.getDesignations();
+      return res.data.data;
+    },
+    staleTime: 1000 * 60 * 60 * 24, 
+  });
 
-  }, []);
+  // 4. Fetch Allowed Roles (Cached for 24 hours)
+  const { data: allowedRoles = [] } = useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const res = await endpoints.common.constants();
+      return Object.values(res.data.data.ROLES);
+    },
+    staleTime: 1000 * 60 * 60 * 24, 
+  });
 
   const onSubmit = async (data) => {
     try {
