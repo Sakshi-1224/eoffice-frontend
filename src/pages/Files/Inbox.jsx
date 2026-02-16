@@ -5,42 +5,34 @@ import { useAuth } from '../../context/AuthContext';
 import { Eye, Loader2, Inbox as InboxIcon, User } from 'lucide-react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 const Inbox = () => {
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false); // New state for button loader
-  const [nextCursor, setNextCursor] = useState(null);    // New state for cursor
+  // const [files, setFiles] = useState([]);
+  // const [loading, setLoading] = useState(true);
+  // const [loadingMore, setLoadingMore] = useState(false); // New state for button loader
+  // const [nextCursor, setNextCursor] = useState(null);    // New state for cursor
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  useEffect(() => {
-    fetchInbox();
-  }, []);
+  const { 
+    data, 
+    isLoading, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfiniteQuery({
+    queryKey: ['inboxFiles'],
+    queryFn: async ({ pageParam = null }) => {
+      const response = await endpoints.files.inbox(10, pageParam);
+      return response.data;
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+  });
 
-  const fetchInbox = async (cursor = null) => {
-    try {
-      if (cursor) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
-      const { data } = await endpoints.files.inbox(10, cursor);
-     const newFiles = data.data.filter(f => f.status != 'DRAFT');
-//const newFiles = data.data;
-      if(cursor){
-      setFiles(prev => [...prev, ...newFiles]); 
-      }else{
-        setFiles(newFiles);
-      }
-      setNextCursor(data.nextCursor);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
+  // 3. Flatten the pages array provided by TanStack Query and filter drafts
+  const files = data?.pages.flatMap(page => 
+    page.data.filter(f => f.status !== 'DRAFT')
+  ) || [];
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex justify-center items-center h-64">
       <Loader2 className="animate-spin text-teal-600" size={32} />
     </div>
@@ -118,14 +110,14 @@ const Inbox = () => {
           </div>
         )}
         {/* 🟢 NEW: Load More Button */}
-        {nextCursor && (
+      {hasNextPage && (
           <div className="p-4 bg-teal-600 text-white border-t border-slate-100 flex justify-center bg-slate-50">
             <button
-              onClick={() => fetchInbox(nextCursor)}
-              disabled={loadingMore}
-              className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white border border-teal-700 text-slate-700 rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium shadow-sm transition-all"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white border border-teal-700 rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium shadow-sm transition-all"
             >
-              {loadingMore ? <Loader2 className="animate-spin" size={16} /> : "Load More"}
+              {isFetchingNextPage ? <Loader2 className="animate-spin" size={16} /> : "Load More"}
             </button>
           </div>
         )}

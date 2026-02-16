@@ -2,19 +2,19 @@ import { useEffect, useState } from 'react';
 import { endpoints } from '../../api/axios';
 import { Link } from 'react-router-dom';
 import { UserCog, Loader2, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 const ManageUsers = () => {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  //used tanstack query to fetch users
+ const { data: users = [], isLoading } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: async () => {
+      const res = await endpoints.users.getAll();
+      return res.data.data;
+    }
+  });
 
-  useEffect(() => {
-    endpoints.users.getAll()
-      .then((res) => setUsers(res.data.data))
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex justify-center items-center h-64">
       <Loader2 className="animate-spin text-teal-600" size={32} />
     </div>
