@@ -9,7 +9,7 @@ import {
   Trash2, PlusCircle, Loader2, ShieldCheck, 
   CheckCircle2, Lock, Send, KeyRound, ShieldAlert, FileText, ChevronRight, Search
 } from 'lucide-react';
-
+import FileMovementTimeline from '../../components/FileMovementTimeline';
 const FileDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
@@ -427,30 +427,26 @@ const { register, handleSubmit, setValue, formState: { isSubmitting, errors } } 
       </div>
 
       {/* RIGHT COLUMN: Audit Trail */}
-      <div className="lg:col-span-1">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 sticky top-4 overflow-hidden">
-          <div className="bg-teal-600 p-4 border-b border-teal-700">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2"><History className="text-teal-200" /> Audit Trail</h3>
+     <div className="lg:col-span-1">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 sticky top-4 overflow-hidden max-h-[85vh] flex flex-col">
+          
+          <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <History className="text-teal-600" size={20} /> History
+            </h3>
+            <span className="bg-white text-slate-500 px-2 py-1 rounded text-xs font-bold border border-slate-200">
+              {history.length} Steps
+            </span>
           </div>
-          <div className="p-6">
-             <div className="relative border-l-2 border-slate-100 ml-3 space-y-8 pb-2">
-              {history.map((item, idx) => (
-                <div key={idx} className="ml-6 relative">
-                  <span className={`absolute -left-[31px] top-1 border-4 border-white rounded-full w-4 h-4 shadow-sm ${idx === 0 ? 'bg-teal-500 ring-2 ring-teal-100' : 'bg-slate-300'}`}></span>
-                  <div className="text-xs text-slate-400 font-mono mb-1">{item.date}</div>
-                  <h4 className="font-bold text-slate-800 text-sm">{item.action}</h4>
-                  <div className="text-xs text-slate-600 mt-2 flex flex-col gap-1">
-                    <div className="flex items-center gap-1"><User size={12} /> {item.from}</div>
-                    {item.to !== 'System'  && item.to !== item.from && <div className="flex items-center gap-1 font-medium"><User size={12} /> {item.to}</div>}
-                  </div>
-                  {item.remarks && <p className="text-xs text-slate-500 italic mt-2 bg-slate-50 p-2 rounded border border-slate-100">"{item.remarks}"</p>}
-                </div>
-              ))}
-            </div>
+
+          <div className="p-4 overflow-y-auto custom-scrollbar">
+             {/* 🟢 RENDER THE NEW COMPONENT */}
+             <FileMovementTimeline movements={history} />
           </div>
+
         </div>
       </div>
-    </div>
+      </div>
   );
 };
 

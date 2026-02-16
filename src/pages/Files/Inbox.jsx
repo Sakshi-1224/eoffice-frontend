@@ -3,7 +3,7 @@ import { endpoints } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Eye, Loader2, Inbox as InboxIcon, User } from 'lucide-react';
-
+import { useInfiniteQuery } from '@tanstack/react-query';
 const Inbox = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,18 +24,19 @@ const Inbox = () => {
         setLoading(true);
       }
       const { data } = await endpoints.files.inbox(10, cursor);
-      const myDrafts = data.data.filter(f => f.status != 'DRAFT');
-
+     const newFiles = data.data.filter(f => f.status != 'DRAFT');
+//const newFiles = data.data;
       if(cursor){
-      setFiles(prev => [...prev, ...myDrafts]); 
+      setFiles(prev => [...prev, ...newFiles]); 
       }else{
-        setFiles(myDrafts);
+        setFiles(newFiles);
       }
       setNextCursor(data.nextCursor);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
