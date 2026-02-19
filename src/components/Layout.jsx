@@ -18,10 +18,6 @@ const Layout = () => {
     { label: 'Change Password', path: '/auth/change-password', icon: Lock }
   ];
 
-  
-  //  navItems.push({ label: 'Initiate File', path: '/files/create', icon: FilePlus });
-  
-  
   if (user?.systemRole === 'ADMIN') {
     navItems.push({ label: 'Register User', path: '/users/create', icon: UserPlus });
   }
@@ -32,17 +28,15 @@ const Layout = () => {
   navItems.push({ label: 'Set PIN', path: '/auth/set-pin', icon: KeyRound });
 
   return (
-    // MAIN CHANGE: Light Background for the whole app
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+    // 🟢 1. WRAPPER: Added print:bg-white and print:h-auto
+    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 print:bg-white print:min-h-0 print:h-auto print:block">
       
-      {/* Sidebar: Dark Slate with Teal Accents */}
-      {/* Fixed width to w-64 to match the margin-left of the main content */}
-      <aside className="w-64 flex flex-col h-screen fixed left-0 top-0 z-10 bg-slate-900 text-white shadow-xl">
+      {/* 🟢 2. SIDEBAR: Added print:hidden to completely remove it when printing */}
+      <aside className="w-64 flex flex-col h-screen fixed left-0 top-0 z-10 bg-slate-900 text-white shadow-xl print:hidden">
         <div className="p-6 border-b border-slate-800">
           <h1 className="text-xl font-bold tracking-wide text-white">
             e-Office
           </h1>
-          {/* Subtitle updated to Teal-400 for accent */}
           <p className="text-[10px] text-teal-400 uppercase tracking-wider mt-1">Maharashtra Mandal Raipur</p>
         </div>
 
@@ -57,8 +51,8 @@ const Layout = () => {
                 className={clsx(
                   "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200",
                   isActive 
-                    ? "bg-teal-600 text-white shadow-md shadow-teal-900/20"  // Active State: Teal
-                    : "text-slate-400 hover:bg-slate-800 hover:text-white"  // Inactive: Slate
+                    ? "bg-teal-600 text-white shadow-md shadow-teal-900/20" 
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white" 
                 )}
               >
                 <Icon size={18} className={isActive ? "text-white" : "text-slate-400"} />
@@ -68,10 +62,8 @@ const Layout = () => {
           })}
         </nav>
 
-        {/* User Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-900">
           <div className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg bg-slate-800 border border-slate-700/50">
-            {/* User Avatar: Teal Background */}
             <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-xs font-bold text-white shadow-sm border border-teal-500">
               {user?.fullName?.charAt(0)}
             </div>
@@ -89,8 +81,8 @@ const Layout = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
+      {/* 🟢 3. MAIN CONTENT: Added print:ml-0 (removes sidebar gap), print:p-0, print:h-auto, print:overflow-visible */}
+      <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen print:ml-0 print:p-0 print:h-auto print:overflow-visible print:block">
         <Outlet />
       </main>
     </div>
