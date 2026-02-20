@@ -72,7 +72,7 @@ const OutboxFileDetails = () => {
     }
   }, [data, selectedPdfUrl]);
 
-  if (isLoading) return <div className="p-10 flex justify-center mt-20 text-slate-600"><Loader2 className="animate-spin" size={32}/></div>;
+  if (isLoading || !data) return <div className="p-10 flex justify-center mt-20 text-slate-600"><Loader2 className="animate-spin" size={32}/></div>;
   if (error) return <div className="p-10 text-center text-red-500">Failed to load details.</div>;
 
   const { fileInfo: file, history } = data;

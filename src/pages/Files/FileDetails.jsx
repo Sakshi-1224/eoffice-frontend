@@ -7,50 +7,49 @@ import {
   Paperclip, ArrowLeft, Loader2, X, Printer, Send, Users, 
   Trash2, ShieldCheck, CornerRightDown, Clock, FileText, Download, ArrowUpDown
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 const FileDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  // 🟢 1. Create a reference for the bottom of the page
+  
   const messagesEndRef = useRef(null);
   
-  const [data, setData] = useState(null);
-  const [allUsers, setAllUsers] = useState([]);
-  
-  // State for dynamic PDF Viewer
   const [selectedPdfUrl, setSelectedPdfUrl] = useState(null);
   const [selectedPdfName, setSelectedPdfName] = useState('');
-
-  // State for sorting history by Date/Time
   const [sortOrder, setSortOrder] = useState('asc'); 
 
-  // Compose / Draft State
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState(null);
   const [remarks, setRemarks] = useState('');
   const [attachments, setAttachments] = useState([]);
   
-  // Modal & PIN State
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [pin, setPin] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dropdownRef = useRef(null);
 
-  const loadData = () => {
-    endpoints.files.history(id)
-      .then((res) => setData(res.data.data))
-      .catch(() => toast.error("Failed to load file details"));
-  };
+  const { data: fileData, isLoading: isLoadingFile } = useQuery({
+    queryKey: ['fileDetails', id],
+    queryFn: async () => {
+      const response = await endpoints.files.history(id);
+      return response.data.data;
+    }
+  });
 
-  useEffect(() => { 
-    loadData(); 
-    endpoints.users.getAll()
-      .then(res => setAllUsers(res.data.data))
-      .catch(console.error);
-  }, [id]);
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: async () => {
+      const response = await endpoints.users.getAll();
+      return response.data.data;
+    },
+    staleTime: 1000 * 60 * 60 * 24 
+  });
+
+  const data = fileData;
 
   useEffect(() => {
     return () => {
@@ -68,14 +67,14 @@ const FileDetails = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
     if (data && sortOrder === 'asc') {
-      // We use a tiny timeout to ensure the DOM has fully rendered the history first
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }, 100);
     }
   }, [data, selectedPdfUrl]);
+
   const getDesignationName = (val) => val?.name || (typeof val === 'string' ? val : '');
 
   const filteredUsers = allUsers.filter(u => 
@@ -129,7 +128,13 @@ useEffect(() => {
     }
   };
 
-  if (!data) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-slate-600" size={30}/></div>;
+  if (isLoadingFile || !data) {
+    return (
+      <div className="p-10 flex justify-center mt-20">
+        <Loader2 className="animate-spin text-slate-600" size={32}/>
+      </div>
+    );
+  }
   
   const { fileInfo: file, history } = data;
   
@@ -144,12 +149,9 @@ useEffect(() => {
         <ArrowLeft size={16} /> Back
       </button>
 
-      {/* Grid Layout Container */}
       <div className={`flex flex-col lg:flex-row gap-6 w-full print:block print:overflow-visible print:w-full print:gap-0 ${selectedPdfUrl ? 'flex-1 overflow-hidden' : ''}`}>
 
-        {/* ========================================== */}
-        {/* LEFT PANE: PDF VIEWER (Hidden on Print)    */}
-        {/* ========================================== */}
+        {/* LEFT PANE: PDF VIEWER (Hidden on Print) */}
         {selectedPdfUrl && (
           <div className="w-full lg:w-[60%] h-full bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300 print:hidden">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
@@ -185,37 +187,33 @@ useEffect(() => {
           </div>
         )}
 
-        {/* ========================================== */}
-        {/* RIGHT PANE: MAIN UI / CHATS                */}
-        {/* ========================================== */}
+        {/* RIGHT PANE: MAIN UI / CHATS */}
         <div className={`w-full flex flex-col transition-all duration-300 print:w-full print:block print:h-auto ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-full'}`}>
           
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full print:border-none print:shadow-none print:block print:h-auto">
             
             {/* Print Document Header */}
-            <div className="hidden print:block text-center mb-6">
-               <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4">Notesheet / Movement History</h1>
+            <div className="hidden print:block text-center mb-10">
+               <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 tracking-widest">Notesheet</h1>
             </div>
 
             {/* Header / Subject Info */}
-            <div className="px-8 py-6 flex items-start justify-between border-b border-slate-100 bg-white shrink-0 print:px-0 print:py-4 print:border-black">
+            <div className="px-8 py-6 flex items-start justify-between border-b border-slate-100 bg-white shrink-0 print:px-0 print:py-4 print:border-black print:mb-8">
               <div className="w-full">
                 <h1 className="text-xl text-slate-900 font-bold tracking-tight flex items-center gap-3 print:mb-2 print:text-black">
-                <span className="hidden print:inline font-bold mr-1">Subject:</span> 
-                  <span>{file.subject}</span>
+                <span className="hidden print:inline font-bold mr-1 text-lg">Subject:</span> 
+                  <span className="print:text-lg">{file.subject}</span>
                   
                   <span className="bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono px-2.5 py-1 rounded-md align-middle print:hidden">
                     {file.fileNumber}
                   </span>
                 </h1>
                 
-                {/* File number exclusively for print */}
-                <div className="hidden print:block text-sm font-bold text-gray-800 font-mono mb-2">
+                <div className="hidden print:block text-base font-bold text-gray-800 font-mono mb-2">
                   File No: {file.fileNumber}
                 </div>
 
                 <div className="flex gap-2 mt-3 print:hidden">
-                
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-200">{file.priority} PRIORITY</span>
                 </div>
               </div>
@@ -230,49 +228,58 @@ useEffect(() => {
             </div>
 
             {/* ==================================================== */}
-            {/* 🟢 PRINT ONLY: FORMAL TABLE FOR REMARKS              */}
+            {/* 🟢 PRINT ONLY: FORMAL TRAIL FORMAT FOR REMARKS       */}
             {/* ==================================================== */}
-            <div className="hidden print:block print:w-full mt-6">
-              <table className="w-full text-left border-collapse border border-gray-400 text-sm">
-                <thead>
-                  <tr className="bg-gray-100 border-b border-gray-400 text-black uppercase text-xs tracking-wider">
-                    <th className="p-3 border-r border-gray-400 w-32 align-top">Date & Time</th>
-                    <th className="p-3 border-r border-gray-400 w-48 align-top">From</th>
-                    <th className="p-3 border-r border-gray-400 w-48 align-top">To</th>
-                    <th className="p-3 border-r border-gray-400 w-24 align-top">Action</th>
-                    <th className="p-3 align-top">Remarks / Noting</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history?.map((msg) => (
-                    <tr key={`print-${msg.id}`} className="border-b border-gray-400 break-inside-avoid align-top">
-                      <td className="p-3 border-r border-gray-400 text-xs text-gray-700">{msg.date}</td>
-                      <td className="p-3 border-r border-gray-400">
-                        <p className="font-bold text-black">{msg.sender}</p>
-                        <p className="text-xs text-gray-600">{msg.senderDesignation || 'System'}</p>
-                      </td>
-                      <td className="p-3 border-r border-gray-400">
-                        {msg.receiver ? (
-                          <>
-                            <p className="font-bold text-black">{msg.receiver}</p>
-                            <p className="text-xs text-gray-600">{msg.receiverDesignation}</p>
-                          </>
-                        ) : '-'}
-                      </td>
-                      <td className="p-3 border-r border-gray-400 font-bold text-xs uppercase text-gray-800">{msg.action}</td>
-                      <td className="p-3 text-black whitespace-pre-wrap leading-relaxed">
-                        {msg.remarks || '-'}
-                        {/* Optionally list attachments in the printed notesheet */}
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="mt-2 text-xs italic text-gray-600">
-                            <strong>Attached:</strong> {msg.attachments.map(a => a.name).join(', ')}
-                          </div>
+            <div className="hidden print:block print:w-full mt-2 text-black">
+              <div className="space-y-4">
+                {/* We map through the original history array to keep chronological order for print */}
+                {history?.map((msg, index) => (
+                  <div key={`print-${msg.id}`} className="break-inside-avoid border-b border-gray-300 pb-4 last:border-0">
+                    
+                    {/* Optional Action Header / Note Number */}
+                    <div className="text-[11px] font-bold uppercase text-gray-500 mb-1.5 tracking-widest">
+                        Comments
+                    </div>
+
+                    {/* Top: Remarks */}
+                    <div className="text-base whitespace-pre-wrap leading-relaxed mb-6 font-medium text-black">
+                      {msg.remarks || '-'}
+                      
+                      {/* Attachments Section */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mt-1.5 text-xs italic text-gray-600">
+                          <strong>Attached Document(s):</strong> {msg.attachments.map(a => a.name).join(', ')}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Right: Sender Info */}
+                    <div className="flex justify-between items-center text-[11px] mt-2">
+                      
+                      {/* Left Side: Receiver */}
+                      <div className="text-left">
+                        {msg.receiver && (
+                          <p>
+                            <span className="italic text-gray-600 mr-1">Forwarded to:</span> 
+                            <span className="font-bold text-gray-800 text-xs">{msg.receiver}</span> 
+                            <span className="text-gray-700 ml-1">({msg.receiverDesignation})</span>
+                          </p>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+
+                      {/* Right: Sender Info */}
+                      <div className="text-right max-w-sm">
+                        <p className="font-bold text-sm text-black">{msg.sender}</p>
+                        <p className="text-[11px] font-semibold text-gray-800 uppercase">{msg.senderDesignation || 'System'}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{msg.date}</p>
+                      </div>
+                        
+                    
+                    </div>
+
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* ==================================================== */}
@@ -330,11 +337,11 @@ useEffect(() => {
                          </div>
                          
                         {/* Remarks Box */}
-{msg.remarks && (
-  <div className="text-slate-900 text-base font-medium whitespace-pre-wrap leading-relaxed bg-amber-50 p-4.5 rounded-xl border border-amber-200 shadow-sm ml-0 md:ml-14 print:ml-0 print:bg-transparent print:border-none print:p-0 print:mt-4 print:text-black print:font-normal print:shadow-none">
-    {msg.remarks}
-  </div>
-)}
+                        {msg.remarks && (
+                          <div className="text-slate-900 text-base font-medium whitespace-pre-wrap leading-relaxed bg-amber-50 p-4.5 rounded-xl border border-amber-200 shadow-sm ml-0 md:ml-14">
+                            {msg.remarks}
+                          </div>
+                        )}
 
                          {/* Document Attachment Cards */}
                          {msg.attachments && msg.attachments.length > 0 && (

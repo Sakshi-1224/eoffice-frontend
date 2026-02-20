@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { endpoints } from '../api/axios';
+import { endpoints, setAuthToken } from '../api/axios';
 import toast from 'react-hot-toast';
 
 const AuthContext = createContext();
@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('token');
     if (storedUser && token) {
       setUser(JSON.parse(storedUser));
+      setAuthToken(token);
     }
     setLoading(false);
   }, []);
@@ -22,9 +23,12 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await endpoints.auth.login(credentials);
       if (data.success) {
+        const token = data.data.token;
         localStorage.setItem('token', data.data.token);
         localStorage.setItem('user', JSON.stringify(data.data.user));
+        setAuthToken(token);
         setUser(data.data.user);
+
         toast.success(`Welcome back, ${data.data.user.fullName}`);
         return true;
       }
@@ -37,6 +41,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    setAuthToken(null);
     setUser(null);
     toast.success('Logged out successfully');
   };
