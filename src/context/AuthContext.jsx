@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { endpoints, setAuthToken } from '../api/axios';
+import { endpoints } from '../api/axios';
 import toast from 'react-hot-toast';
 
 const AuthContext = createContext();
@@ -11,22 +11,30 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check for existing session
     const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    if (storedUser && token) {
+    if (storedUser) {
       setUser(JSON.parse(storedUser));
-      setAuthToken(token);
     }
     setLoading(false);
+    // 🟢 MULTI-TAB LOGOUT SYNC FIX
+    // If a user logs out in Tab A, 'user' is removed from localStorage.
+    // Tab B detects this storage change and instantly logs out.
+    const handleStorageChange = (e) => {
+      if (e.key === 'user' && e.newValue === null) {
+        setUser(null);
+        toast.error('Logged out from another tab or window.');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const login = async (credentials) => {
     try {
       const { data } = await endpoints.auth.login(credentials);
       if (data.success) {
-        const token = data.data.token;
-        localStorage.setItem('token', data.data.token);
+
         localStorage.setItem('user', JSON.stringify(data.data.user));
-        setAuthToken(token);
         setUser(data.data.user);
 
         toast.success(`Welcome back, ${data.data.user.fullName}`);
@@ -38,12 +46,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setAuthToken(null);
-    setUser(null);
-    toast.success('Logged out successfully');
+  const logout = async () => {
+    try{
+   await endpoints.auth.logout(); 
+    } catch (error) {
+      console.error("Backend logout failed", error);
+    } finally {
+      // Clear local state (Triggers the cross-tab sync automatically!)
+      localStorage.removeItem('user');
+      setUser(null);
+      toast.success('Logged out successfully');
+    }
   };
 const updateUser = (newUserData) => {
     setUser((prevUser) => {
