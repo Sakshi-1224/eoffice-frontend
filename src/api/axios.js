@@ -7,25 +7,9 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, 
 });
 
-let cachedToken=null;
-
-export const setAuthToken = (token) =>{ cachedToken=token;};
-
-api.interceptors.request.use((config) => {
-
-  if (!cachedToken) {
-    cachedToken = localStorage.getItem('token');
-  }
-
-  // If we have a token, attach it
-  if (cachedToken) {
-    config.headers.Authorization = `Bearer ${cachedToken}`;
-  }
-  
-  return config;
-}, (error) => Promise.reject(error));
 
 api.interceptors.response.use(
   (response) => response,
@@ -36,9 +20,9 @@ api.interceptors.response.use(
       if (requestUrl.includes('/auth/set-pin') || requestUrl.includes('/auth/change-password')) {
         return Promise.reject(error);
       }
-      if (!window.location.pathname.includes('/login')) {
+     if (!window.location.pathname.includes('/login')) {
         localStorage.removeItem('user');
-        localStorage.removeItem('token');
+
         window.location.href = '/login';
       }
     }
@@ -49,6 +33,7 @@ api.interceptors.response.use(
 export const endpoints = {
   auth: {
     login: (data) => api.post('/auth/login', data),
+    logout: () => api.post('/auth/logout'),
     changePassword: (data) => api.post('/auth/change-password', data), 
     setPin: (data) => api.post('/auth/set-pin', data),
     forgotPassword: (data) => api.post('/auth/forgot-password', data),
