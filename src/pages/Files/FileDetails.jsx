@@ -30,6 +30,8 @@ const FileDetails = () => {
   const [pin, setPin] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [composeHeight, setComposeHeight] = useState(260);
+
   const dropdownRef = useRef(null);
 
   const { data: fileData, isLoading: isLoadingFile } = useQuery({
@@ -128,6 +130,31 @@ const FileDetails = () => {
     }
   };
 
+  const startResizing = (e) => {
+    e.preventDefault();
+    const isTouch = e.type === 'touchstart';
+    
+    const onMouseMove = (moveEvent) => {
+      const clientY = isTouch ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      const newHeight = window.innerHeight - clientY - 80; 
+      
+      // 🟢 FIX: Snap to fully closed (0) if dragged below 100px
+      if (newHeight < 100) {
+        setComposeHeight(0);
+      } else if (newHeight <= window.innerHeight * 0.8) {
+        setComposeHeight(newHeight);
+      }
+    };
+    
+    const onMouseUp = () => {
+      document.removeEventListener(isTouch ? "touchmove" : "mousemove", onMouseMove);
+      document.removeEventListener(isTouch ? "touchend" : "mouseup", onMouseUp);
+    };
+    
+    document.addEventListener(isTouch ? "touchmove" : "mousemove", onMouseMove, { passive: false });
+    document.addEventListener(isTouch ? "touchend" : "mouseup", onMouseUp);
+  };
+
   if (isLoadingFile || !data) {
     return (
       <div className="p-10 flex justify-center mt-20">
@@ -151,7 +178,6 @@ const FileDetails = () => {
 
       <div className={`flex flex-col lg:flex-row gap-6 w-full print:block print:overflow-visible print:w-full print:gap-0 ${selectedPdfUrl ? 'flex-1 overflow-hidden' : ''}`}>
 
-        {/* LEFT PANE: PDF VIEWER (Hidden on Print) */}
         {selectedPdfUrl && (
           <div className="w-full lg:w-[60%] h-full bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300 print:hidden">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
@@ -188,36 +214,84 @@ const FileDetails = () => {
         )}
 
         {/* RIGHT PANE: MAIN UI / CHATS */}
-        <div className={`w-full flex flex-col transition-all duration-300 print:w-full print:block print:h-auto ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-full'}`}>
-          
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full print:border-none print:shadow-none print:block print:h-auto">
+        <div className={`w-full flex flex-col transition-all duration-300 print:w-full print:block print:h-auto ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-[calc(100vh-120px)]'}`}>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full print:border-none print:shadow-none print:block print:h-auto print:rounded-none">
             
-            {/* Print Document Header */}
-            <div className="hidden print:block text-center mb-10">
-               <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 tracking-widest">Notesheet</h1>
+            <div className="hidden print:block text-center mt-12 mb-8">
+               <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 tracking-widest text-black">Notesheet</h1>
             </div>
+            <table className=" hidden print:table w-full border-collapse border border-black text-black">
+              <thead className="table-header-group">
+                <tr>
+                  <th colSpan={2} className="p-0 border-b border-black">
+                    <div className="flex flex-col items-start text-left gap-2 p-3 border-t border-x border-black bg-white w-full">
+                      <div className="text-lg flex gap-2 w-full">
+                        <span className="font-bold w-20 shrink-0">Subject:</span>
+                        <span className="font-medium flex-1">{file.subject}</span>
+                      </div>
+                      <div className="text-base font-mono flex gap-2 w-full">
+                        <span className="font-bold w-20 shrink-0">File No:</span>
+                        <span className="font-bold">{file.fileNumber}</span>
+                      </div>
+                    </div>
+                  </th>
+                </tr>
+                <tr>
+                  <th className="p-2 border border-black w-[75%] text-left font-bold uppercase tracking-widest text-xs bg-gray-100">Notes / Remarks</th>
+                  <th className="p-2 border border-black w-[25%] text-center font-bold uppercase tracking-widest text-xs bg-gray-100">Sign & Details</th>
+                </tr>
+              </thead>
+              <tbody className="table-row-group">
+                {history?.map((msg) => (
+                  <tr key={`print-${msg.id}`} className="break-inside-avoid">
+                    <td className="p-4 border border-black align-top">
+                      <div className="text-[10px] font-bold uppercase text-gray-500 mb-2 tracking-widest">
+                         {msg.action}
+                      </div>
+                      <div className="text-[15px] whitespace-pre-wrap leading-relaxed font-medium text-black">
+                        {msg.remarks || '-'}
+                      </div>
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mt-4 text-xs italic text-gray-800 bg-gray-50 p-2 border border-gray-300 rounded">
+                          <strong>Attached Document(s):</strong> {msg.attachments.map(a => a.name).join(', ')}
+                        </div>
+                      )}
+                      {msg.receiver && (
+                        <div className="mt-6 pt-3 border-t border-dashed border-gray-400 flex items-center gap-2">
+                          <CornerRightDown size={14} className="text-gray-500" />
+                          <span className="italic text-gray-600">Forwarded to:</span>
+                          <span className="font-bold text-gray-800 text-xs">{msg.receiver}</span>
+                          <span className="text-gray-700 text-xs">({msg.receiverDesignation})</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-4 border border-black align-bottom text-center">
+                      <div className="flex flex-col items-center justify-end h-full min-h-[120px]">
+                        <div className="w-full h-16 mb-2"></div> 
+                        <p className="font-bold text-sm text-black">{msg.sender}</p>
+                        <p className="text-[10px] font-bold text-gray-800 uppercase mt-0.5 max-w-full break-words">{msg.senderDesignation || 'System'}</p>
+                        <p className="text-[10px] text-gray-500 mt-2 font-medium">{msg.date}</p>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
             {/* Header / Subject Info */}
-            <div className="px-8 py-6 flex items-start justify-between border-b border-slate-100 bg-white shrink-0 print:px-0 print:py-4 print:border-black print:mb-8">
-              <div className="w-full">
-                <h1 className="text-xl text-slate-900 font-bold tracking-tight flex items-center gap-3 print:mb-2 print:text-black">
-                <span className="hidden print:inline font-bold mr-1 text-lg">Subject:</span> 
-                  <span className="print:text-lg">{file.subject}</span>
-                  
-                  <span className="bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono px-2.5 py-1 rounded-md align-middle print:hidden">
+            <div className="px-8 py-5 flex items-start justify-between border-b border-slate-200 bg-white shadow-sm shrink-0 z-10 print:hidden">
+              <div className="w-full flex flex-col">
+                <h1 className="text-xl text-slate-900 font-bold tracking-tight flex items-center gap-3">
+                  <span>{file.subject}</span>
+                  <span className="bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono px-2.5 py-1 rounded-md align-middle">
                     {file.fileNumber}
                   </span>
                 </h1>
-                
-                <div className="hidden print:block text-base font-bold text-gray-800 font-mono mb-2">
-                  File No: {file.fileNumber}
-                </div>
-
-                <div className="flex gap-2 mt-3 print:hidden">
+                <div className="flex gap-2 mt-3">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-200">{file.priority} PRIORITY</span>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-slate-400 print:hidden">
+              <div className="flex items-center gap-4 text-slate-400 mt-2">
                  <Printer 
                    size={20} 
                    className="cursor-pointer hover:text-slate-700 transition-colors" 
@@ -227,65 +301,8 @@ const FileDetails = () => {
               </div>
             </div>
 
-            {/* ==================================================== */}
-            {/* 🟢 PRINT ONLY: FORMAL TRAIL FORMAT FOR REMARKS       */}
-            {/* ==================================================== */}
-            <div className="hidden print:block print:w-full mt-2 text-black">
-              <div className="space-y-4">
-                {/* We map through the original history array to keep chronological order for print */}
-                {history?.map((msg, index) => (
-                  <div key={`print-${msg.id}`} className="break-inside-avoid border-b border-gray-300 pb-4 last:border-0">
-                    
-                    {/* Optional Action Header / Note Number */}
-                    <div className="text-[11px] font-bold uppercase text-gray-500 mb-1.5 tracking-widest">
-                        Comments
-                    </div>
-
-                    {/* Top: Remarks */}
-                    <div className="text-base whitespace-pre-wrap leading-relaxed mb-6 font-medium text-black">
-                      {msg.remarks || '-'}
-                      
-                      {/* Attachments Section */}
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="mt-1.5 text-xs italic text-gray-600">
-                          <strong>Attached Document(s):</strong> {msg.attachments.map(a => a.name).join(', ')}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bottom Right: Sender Info */}
-                    <div className="flex justify-between items-center text-[11px] mt-2">
-                      
-                      {/* Left Side: Receiver */}
-                      <div className="text-left">
-                        {msg.receiver && (
-                          <p>
-                            <span className="italic text-gray-600 mr-1">Forwarded to:</span> 
-                            <span className="font-bold text-gray-800 text-xs">{msg.receiver}</span> 
-                            <span className="text-gray-700 ml-1">({msg.receiverDesignation})</span>
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Right: Sender Info */}
-                      <div className="text-right max-w-sm">
-                        <p className="font-bold text-sm text-black">{msg.sender}</p>
-                        <p className="text-[11px] font-semibold text-gray-800 uppercase">{msg.senderDesignation || 'System'}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">{msg.date}</p>
-                      </div>
-                        
-                    
-                    </div>
-
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ==================================================== */}
-            {/* SCREEN ONLY: VERTICAL THREAD LAYOUT                  */}
-            {/* ==================================================== */}
-            <div className={`p-6 bg-slate-50/50 print:hidden ${selectedPdfUrl ? 'flex-1 overflow-y-auto' : ''}`}>
+            {/* VERTICAL THREAD LAYOUT */}
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 print:hidden">
               
               <div className="flex justify-between items-center mb-6 px-1">
                 <span className="text-sm font-bold text-slate-700">Audit Trail</span>
@@ -307,19 +324,16 @@ const FileDetails = () => {
                      <div key={msg.id} className="w-full">
                        <div className={`w-full bg-white p-5 rounded-2xl shadow-sm border transition-all ${isForward ? 'border-blue-100/60 hover:border-blue-200' : 'border-emerald-100/60 hover:border-emerald-200'}`}>
                          
-                         {/* Card Header */}
                          <div className="flex justify-between items-start mb-4">
                             <div className="flex items-start gap-4">
                                <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center shadow-sm border-2 border-white ${isForward ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'}`}>
                                   {isForward ? <Send size={16} className="ml-0.5"/> : <ShieldCheck size={18}/>}
                                </div>
-                               
                                <div>
                                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                                    {msg.sender} 
                                    <span className="text-xs font-medium text-slate-500">({msg.senderDesignation || 'System'})</span>
                                  </h3>
-                                 
                                  {isForward && msg.receiver && (
                                     <p className="text-xs font-medium text-blue-700 flex items-center gap-1.5 mt-1 bg-blue-50/80 px-2.5 py-1 rounded-lg w-fit border border-blue-100/50">
                                       <CornerRightDown size={14} /> to {msg.receiver} <span className="opacity-70">({msg.receiverDesignation})</span>
@@ -327,7 +341,6 @@ const FileDetails = () => {
                                  )}
                                </div>
                             </div>
-                            
                             <div className="text-right shrink-0">
                               <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${isForward ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                                 {msg.action}
@@ -336,14 +349,12 @@ const FileDetails = () => {
                             </div>
                          </div>
                          
-                        {/* Remarks Box */}
                         {msg.remarks && (
                           <div className="text-slate-900 text-base font-medium whitespace-pre-wrap leading-relaxed bg-amber-50 p-4.5 rounded-xl border border-amber-200 shadow-sm ml-0 md:ml-14">
                             {msg.remarks}
                           </div>
                         )}
 
-                         {/* Document Attachment Cards */}
                          {msg.attachments && msg.attachments.length > 0 && (
                             <div className="mt-4 ml-0 md:ml-14 flex flex-wrap gap-4">
                               {msg.attachments.map(att => (
@@ -383,120 +394,137 @@ const FileDetails = () => {
               </div>
             </div>
 
-            {/* --- Compose Box (Hidden on Print) --- */}
-            <div className={`bg-slate-50/50 shrink-0 print:hidden ${selectedPdfUrl ? 'px-6 pb-6 pt-2 border-t border-slate-200' : 'px-8 pb-8 pt-4'}`}>
-              <div className="border border-slate-300 rounded-2xl shadow-lg transition-all overflow-visible bg-white">
-                 <div className="flex items-center border-b border-slate-100 px-5 py-3 bg-slate-100/80 rounded-t-2xl relative">
-                    <span className="text-black text-sm font-medium w-10">To:</span>
-                    {selectedRecipient ? (
-                      <div className="flex items-center gap-2 bg-slate-800 text-white border border-slate-700 px-3 py-1.5 rounded-full text-xs shadow-sm">
-                        <span className="font-medium">{selectedRecipient.full_name}</span>
-                        <span className="opacity-70">({getDesignationName(selectedRecipient.designation)})</span>
-                        <div className="w-px h-3 bg-slate-600 mx-1"></div>
-                        <X size={14} className="cursor-pointer hover:text-red-400" onClick={() => setSelectedRecipient(null)} />
-                      </div>
-                    ) : (
-                      <div className="flex-1 relative" ref={dropdownRef}>
-                        <input 
-                          type="text" 
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          onFocus={() => setIsDropdownOpen(true)}
-                          className="w-full bg-transparent text-sm outline-none text-slate-800 py-1 placeholder:text-slate-400"
-                          placeholder="Search recipient by name or designation..."
-                        />
-                        {isDropdownOpen && (
-                           <div className="absolute bottom-full left-0 mb-2 w-full max-w-md bg-white border border-slate-200 shadow-2xl rounded-xl z-20 max-h-48 overflow-y-auto">
-                              {filteredUsers.length === 0 ? (
-                                  <div className="p-4 text-center text-slate-400 flex flex-col items-center">
-                                      <Users size={24} className="mb-2 opacity-30"/>
-                                      <p className="text-xs">No users found</p>
-                                  </div>
-                              ) : (
-                                  filteredUsers.map(u => (
-                                    <div 
-                                      key={u.id} 
-                                      onClick={() => { setSelectedRecipient(u); setSearchTerm(''); setIsDropdownOpen(false); }} 
-                                      className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-none flex items-center justify-between group transition-colors"
-                                    >
-                                      <div>
-                                          <p className="text-sm font-bold text-slate-800">{u.full_name}</p>
-                                          <p className="text-xs text-slate-500 mt-0.5">{getDesignationName(u.designation)}</p>
-                                      </div>
-                                    </div>
-                                  ))
-                              )}
-                           </div>
-                        )}
-                      </div>
-                    )}
-                 </div>
+            {/* 🟢 NEW: Draggable Resizer Line (with double-click support) */}
+            <div 
+              onMouseDown={startResizing}
+              onTouchStart={startResizing}
+              onDoubleClick={() => setComposeHeight(composeHeight === 0 ? 260 : 0)}
+              className={`w-full cursor-row-resize bg-slate-100 hover:bg-teal-50 transition-colors flex items-center justify-center print:hidden shrink-0 group border-y border-slate-200 z-10 relative ${composeHeight === 0 ? 'h-6' : 'h-3'}`}
+              title="Drag or double-click to toggle"
+            >
+              <div className="w-12 h-1 bg-slate-400 rounded-full group-hover:bg-teal-500 transition-colors"></div>
+              {composeHeight === 0 && (
+                <span className="absolute text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-20 pointer-events-none">
+                  Open Remarks
+                </span>
+              )}
+            </div>
 
-                 <textarea 
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    className={`w-full p-4 text-sm text-slate-800 outline-none resize-y leading-relaxed placeholder:text-slate-400 ${selectedPdfUrl ? 'min-h-[100px]' : 'min-h-[160px]'}`} 
-                    placeholder="Add your comments before forwarding..."
-                 />
-
-                 {attachments.length > 0 && (
-                    <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap gap-3 bg-slate-50/50">
-                      {attachments.map((file, idx) => (
-                        <div key={idx} className="relative group flex flex-col w-32 rounded-lg overflow-hidden shadow-sm border border-slate-200 bg-white">
-                           <button 
-                             onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                             className="absolute top-1 right-1 z-10 bg-white/90 text-slate-500 hover:text-red-500 hover:bg-red-50 p-1 rounded-full border border-slate-100"
-                           >
-                             <X size={12} />
-                           </button>
-                           <div className="h-20 bg-gradient-to-br from-slate-50 to-slate-100 border-b flex items-center justify-center p-2">
-                               <div className="bg-white w-10 h-14 rounded border border-slate-200 p-1.5 flex flex-col gap-1">
-                                 <div className="w-full h-0.5 bg-slate-200 rounded-full"></div>
-                                 <div className="w-5/6 h-0.5 bg-slate-200 rounded-full"></div>
-                                 <div className="w-full h-0.5 bg-slate-200 rounded-full"></div>
-                               </div>
-                           </div>
-                           <div className="p-2 bg-white">
-                              <p className="text-[10px] font-bold text-slate-800 truncate">{file.name}</p>
-                           </div>
+          {/* 🟢 UPDATED: Conditional overflow and z-30 so the dropdown can escape the box */}
+            <div 
+              className={`bg-slate-50/50 rounded-b-2xl shrink-0 print:hidden flex flex-col relative z-30 ${composeHeight === 0 ? 'overflow-hidden' : 'overflow-visible'}`}
+              style={{ height: composeHeight }}
+            >
+              <div className={`flex-1 flex flex-col h-full ${selectedPdfUrl ? 'px-6 pb-6 pt-3' : 'px-8 pb-8 pt-4'}`}>
+                <div className={`border border-slate-300 rounded-2xl shadow-lg transition-all bg-white flex flex-col h-full ${composeHeight === 0 ? 'overflow-hidden' : 'overflow-visible'}`}>
+                   
+                   <div className="shrink-0 flex items-center border-b border-slate-100 px-5 py-3 bg-slate-100/80 rounded-t-2xl relative">
+                      <span className="text-black text-sm font-medium w-10">To:</span>
+                      {selectedRecipient ? (
+                        <div className="flex items-center gap-2 bg-slate-800 text-white border border-slate-700 px-3 py-1.5 rounded-full text-xs shadow-sm">
+                          <span className="font-medium">{selectedRecipient.full_name}</span>
+                          <span className="opacity-70">({getDesignationName(selectedRecipient.designation)})</span>
+                          <div className="w-px h-3 bg-slate-600 mx-1"></div>
+                          <X size={14} className="cursor-pointer hover:text-red-400" onClick={() => setSelectedRecipient(null)} />
                         </div>
-                      ))}
-                    </div>
-                 )}
+                      ) : (
+                        <div className="flex-1 relative" ref={dropdownRef}>
+                          <input 
+                            type="text" 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onFocus={() => setIsDropdownOpen(true)}
+                            className="w-full bg-transparent text-sm outline-none text-slate-800 py-1 placeholder:text-slate-400"
+                            placeholder="Search recipient by name or designation..."
+                          />
+                          {isDropdownOpen && (
+                             <div className="absolute bottom-full left-0 mb-2 w-full max-w-md bg-white border border-slate-200 shadow-2xl rounded-xl z-50 max-h-48 overflow-y-auto">
+                                {filteredUsers.length === 0 ? (
+                                    <div className="p-4 text-center text-slate-400 flex flex-col items-center">
+                                        <Users size={24} className="mb-2 opacity-30"/>
+                                        <p className="text-xs">No users found</p>
+                                    </div>
+                                ) : (
+                                    filteredUsers.map(u => (
+                                      <div 
+                                        key={u.id} 
+                                        onClick={() => { setSelectedRecipient(u); setSearchTerm(''); setIsDropdownOpen(false); }} 
+                                        className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-none flex items-center justify-between group transition-colors"
+                                      >
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">{u.full_name}</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">{getDesignationName(u.designation)}</p>
+                                        </div>
+                                      </div>
+                                    ))
+                                )}
+                             </div>
+                          )}
+                        </div>
+                      )}
+                   </div>
 
-                 <div className="flex justify-between items-center px-5 py-3 bg-white border-t border-slate-100 rounded-b-2xl">
-                    <div className="flex items-center gap-3">
+                   <textarea 
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      className="flex-1 w-full p-4 text-sm text-slate-800 outline-none resize-none leading-relaxed placeholder:text-slate-400 min-h-[60px]" 
+                      placeholder="Add your comments before forwarding..."
+                   />
+
+                   {attachments.length > 0 && (
+                      <div className="shrink-0 px-5 py-3 border-t border-slate-100 flex flex-wrap gap-3 bg-slate-50/50 overflow-y-auto max-h-24">
+                        {attachments.map((file, idx) => (
+                          <div key={idx} className="relative group flex flex-col w-24 rounded-lg overflow-hidden shadow-sm border border-slate-200 bg-white">
+                             <button 
+                               onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                               className="absolute top-1 right-1 z-10 bg-white/90 text-slate-500 hover:text-red-500 hover:bg-red-50 p-1 rounded-full border border-slate-100"
+                             >
+                               <X size={10} />
+                             </button>
+                             <div className="h-10 bg-gradient-to-br from-slate-50 to-slate-100 border-b flex items-center justify-center p-1">
+                                 <Paperclip size={12} className="text-slate-400"/>
+                             </div>
+                             <div className="p-1.5 bg-white">
+                                <p className="text-[9px] font-bold text-slate-800 truncate">{file.name}</p>
+                             </div>
+                          </div>
+                        ))}
+                      </div>
+                   )}
+
+                   <div className="shrink-0 flex justify-between items-center px-5 py-3 bg-white border-t border-slate-100 rounded-b-2xl">
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={openForwardConfirmation}
+                          disabled={isSubmitting || !selectedRecipient}
+                          className="w-40 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg shadow-teal-200 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:active:scale-100"
+                        >
+                          Send File
+                        </button>
+                        
+                        <label className="p-2 text-slate-500 hover:bg-slate-100 rounded-full cursor-pointer transition-colors" title="Attach files">
+                          <Paperclip size={18} />
+                          <input type="file" accept="application/pdf" multiple className="hidden" onChange={e => {
+                             if(e.target.files?.length) setAttachments(prev => [...prev, ...Array.from(e.target.files)]);
+                          }} />
+                        </label>
+                      </div>
+
                       <button 
-                        onClick={openForwardConfirmation}
-                        disabled={isSubmitting || !selectedRecipient}
-                        className="w-40 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg shadow-teal-200 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                         onClick={() => {setRemarks(''); setAttachments([]); setSelectedRecipient(null);}}
+                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                         title="Discard Draft"
                       >
-                        Send File
+                         <Trash2 size={18} />
                       </button>
-                      
-                      <label className="p-2 text-slate-500 hover:bg-slate-100 rounded-full cursor-pointer transition-colors" title="Attach files">
-                        <Paperclip size={18} />
-                        <input type="file" accept="application/pdf" multiple className="hidden" onChange={e => {
-                           if(e.target.files?.length) setAttachments(prev => [...prev, ...Array.from(e.target.files)]);
-                        }} />
-                      </label>
-                    </div>
-
-                    <button 
-                       onClick={() => {setRemarks(''); setAttachments([]); setSelectedRecipient(null);}}
-                       className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                       title="Discard Draft"
-                    >
-                       <Trash2 size={18} />
-                    </button>
-                 </div>
+                   </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* --- CONFIRMATION MODAL --- */}
       {isForwardModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4 animate-in fade-in duration-200 print:hidden">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
