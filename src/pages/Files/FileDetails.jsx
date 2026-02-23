@@ -138,7 +138,6 @@ const FileDetails = () => {
       const clientY = isTouch ? moveEvent.touches[0].clientY : moveEvent.clientY;
       const newHeight = window.innerHeight - clientY - 80; 
       
-      // 🟢 FIX: Snap to fully closed (0) if dragged below 100px
       if (newHeight < 100) {
         setComposeHeight(0);
       } else if (newHeight <= window.innerHeight * 0.8) {
@@ -170,13 +169,13 @@ const FileDetails = () => {
     : [...(history || [])].reverse();
 
   return (
-    <div className={`mx-auto animate-fade-in-up pb-10 transition-all duration-300 flex flex-col print:block print:h-auto print:bg-white print:p-0 ${selectedPdfUrl ? 'max-w-[1600px] px-4 h-[calc(100vh-80px)]' : 'max-w-5xl'}`}>
+    <div className={`mx-auto animate-fade-in-up transition-all duration-300 flex flex-col print:block print:h-auto print:bg-white print:p-0 ${selectedPdfUrl ? 'max-w-[1600px] px-4 h-[calc(100vh-80px)]' : 'max-w-6xl'}`}>
       
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-4 mt-2 text-sm font-medium transition-colors shrink-0 w-fit print:hidden">
         <ArrowLeft size={16} /> Back
       </button>
 
-      <div className={`flex flex-col lg:flex-row gap-6 w-full print:block print:overflow-visible print:w-full print:gap-0 ${selectedPdfUrl ? 'flex-1 overflow-hidden' : ''}`}>
+     <div className={`flex flex-col lg:flex-row gap-6 w-full print:block print:overflow-visible print:w-full print:gap-0 flex-1 overflow-hidden`}>
 
         {selectedPdfUrl && (
           <div className="w-full lg:w-[60%] h-full bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300 print:hidden">
@@ -186,12 +185,17 @@ const FileDetails = () => {
                 <h2 className="font-bold text-slate-800 truncate">{selectedPdfName}</h2>
               </div>
               <div className="flex gap-2 shrink-0">
-                <button 
+               <button 
                   onClick={() => {
-                    const link = document.createElement('a'); link.href = selectedPdfUrl; link.setAttribute('target', '_blank');
-                    document.body.appendChild(link); link.click(); link.parentNode.removeChild(link);
+                    const link = document.createElement('a'); 
+                    link.href = selectedPdfUrl; 
+                    link.setAttribute('download', selectedPdfName || 'document.pdf'); 
+                    document.body.appendChild(link); 
+                    link.click(); 
+                    link.parentNode.removeChild(link);
                   }}
-                  className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors" title="Open in New Tab"
+                  className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors" 
+                  title="Download File"
                 >
                   <Download size={18} />
                 </button>
@@ -215,16 +219,28 @@ const FileDetails = () => {
 
         {/* RIGHT PANE: MAIN UI / CHATS */}
         <div className={`w-full flex flex-col transition-all duration-300 print:w-full print:block print:h-auto ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-[calc(100vh-120px)]'}`}>
+          
+          {/* 🟢 PRINT ONLY: FIXED REPEATING HEADER (OUTSIDE TABLE) */}
+          <div className="hidden print:flex fixed top-0 left-0 w-full justify-center bg-white z-[9999] pt-4 pb-2">
+            <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 tracking-widest text-black">
+              Notesheet
+            </h1>
+          </div>
+
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full print:border-none print:shadow-none print:block print:h-auto print:rounded-none">
             
-            <div className="hidden print:block text-center mt-12 mb-8">
-               <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 tracking-widest text-black">Notesheet</h1>
-            </div>
-            <table className=" hidden print:table w-full border-collapse border border-black text-black">
+            {/* 🟢 FIX: Removed global border border-black from this table tag */}
+            <table className="hidden print:table w-full border-collapse text-black">
               <thead className="table-header-group">
+                {/* 1. Invisible Spacer so table doesn't hide behind fixed Notesheet header */}
                 <tr>
-                  <th colSpan={2} className="p-0 border-b border-black">
-                    <div className="flex flex-col items-start text-left gap-2 p-3 border-t border-x border-black bg-white w-full">
+                  <th colSpan={2} className="h-16 border-none bg-transparent"></th>
+                </tr>
+
+                {/* 2. The Subject and File Number Box */}
+                <tr>
+                  <th colSpan={2} className="p-0 border-t border-x border-b border-black">
+                    <div className="flex flex-col items-start text-left gap-2 p-3 bg-white w-full">
                       <div className="text-lg flex gap-2 w-full">
                         <span className="font-bold w-20 shrink-0">Subject:</span>
                         <span className="font-medium flex-1">{file.subject}</span>
@@ -236,11 +252,14 @@ const FileDetails = () => {
                     </div>
                   </th>
                 </tr>
+
+                {/* 3. The Column Headers */}
                 <tr>
                   <th className="p-2 border border-black w-[75%] text-left font-bold uppercase tracking-widest text-xs bg-gray-100">Notes / Remarks</th>
                   <th className="p-2 border border-black w-[25%] text-center font-bold uppercase tracking-widest text-xs bg-gray-100">Sign & Details</th>
                 </tr>
               </thead>
+              
               <tbody className="table-row-group">
                 {history?.map((msg) => (
                   <tr key={`print-${msg.id}`} className="break-inside-avoid">
@@ -278,7 +297,7 @@ const FileDetails = () => {
               </tbody>
             </table>
 
-            {/* Header / Subject Info */}
+            {/* SCREEN ONLY: Header / Subject Info */}
             <div className="px-8 py-5 flex items-start justify-between border-b border-slate-200 bg-white shadow-sm shrink-0 z-10 print:hidden">
               <div className="w-full flex flex-col">
                 <h1 className="text-xl text-slate-900 font-bold tracking-tight flex items-center gap-3">
@@ -504,9 +523,37 @@ const FileDetails = () => {
                         
                         <label className="p-2 text-slate-500 hover:bg-slate-100 rounded-full cursor-pointer transition-colors" title="Attach files">
                           <Paperclip size={18} />
-                          <input type="file" accept="application/pdf" multiple className="hidden" onChange={e => {
-                             if(e.target.files?.length) setAttachments(prev => [...prev, ...Array.from(e.target.files)]);
-                          }} />
+                          <input 
+                            type="file" 
+                            accept="application/pdf" 
+                            multiple 
+                            className="hidden" 
+                            onChange={e => {
+                              if (!e.target.files?.length) return;
+
+                              const newFiles = Array.from(e.target.files);
+                              
+                              // 1. Filter out files larger than 10MB
+                              const validFiles = newFiles.filter(file => file.size <= 10 * 1024 * 1024); 
+                              
+                              if (newFiles.length !== validFiles.length) {
+                                  toast.error("Some files exceed the 10MB limit and were skipped.");
+                              }
+                              
+                              // 2. Enforce the maximum of 10 attachments total
+                              setAttachments(prev => {
+                                  const combined = [...prev, ...validFiles];
+                                  if (combined.length > 10) {
+                                      toast.error("Maximum 10 attachments allowed.");
+                                      return combined.slice(0, 10); 
+                                  }
+                                  return combined;
+                              });
+
+                              // 3. Clear the input so the user can select the exact same file again if they delete it
+                              e.target.value = null;
+                            }} 
+                          />
                         </label>
                       </div>
 
