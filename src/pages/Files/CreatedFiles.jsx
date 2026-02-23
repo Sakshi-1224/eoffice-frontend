@@ -14,8 +14,8 @@ const CreatedFiles = () => {
   const { data: files = [], isLoading } = useQuery({
     queryKey: ['createdFiles'],
     queryFn: async () => {
-      const { data } = await endpoints.files.inbox();
-      return data.data.filter(f => f.status === 'DRAFT');
+      const { data } = await endpoints.files.drafts();
+      return data.data;
     }
   });
 

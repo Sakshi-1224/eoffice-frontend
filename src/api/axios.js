@@ -51,6 +51,9 @@ export const endpoints = {
   files: {
     // 🟢 FIX: Send standard JSON payload instead of multipart/form-data
     create: (data) => api.post('/files', data),
+
+    drafts: (limit = 10, cursor = null) => 
+      api.get(`/files/drafts?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`),
     
     inbox: (limit = 10, cursor = null) => 
       api.get(`/files/inbox?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`),
@@ -59,16 +62,11 @@ export const endpoints = {
       api.get(`/files/outbox?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`),
     
     search: (queryString) => api.get(`/files/search?${queryString}`),
-    stats: () => api.get('/files/stats'),
+
     history: (id) => api.get(`/files/${id}/history`),
     
-    downloadPuc: (id) => api.get(`/files/${id}/download-puc`, { responseType: 'blob' }),
     downloadAttachment: (attachmentId) => api.get(`/files/attachment/${attachmentId}/download`, { responseType: 'blob' }),
-    downloadSignedDoc: (id) => api.get(`/files/${id}/download-signed`, { responseType: 'blob' }),
-    
-    uploadSignedDoc: (id, formData) => api.post(`/files/${id}/sign`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+   
     addAttachment: (id, formData) => api.post(`/files/${id}/attachment`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),

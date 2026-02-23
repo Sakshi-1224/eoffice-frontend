@@ -1,13 +1,57 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, Inbox, Send, Search, FilePlus, UserPlus, KeyRound, LogOut, Lock , Users, PenTool
 } from 'lucide-react';
 import clsx from 'clsx';
-
+import { useQueryClient } from '@tanstack/react-query'; // Added useQueryClient
+import { io } from 'socket.io-client'; // Added Socket.IO
+import toast from 'react-hot-toast'; // Added toast for notifications
 const Layout = () => {
+
   const { user, logout } = useAuth();
   const location = useLocation();
+
+  const queryClient = useQueryClient(); // Initialize QueryClient
+
+  // --- NEW: Socket.IO Integration ---
+  useEffect(() => {
+    // Only connect if the user is authenticated
+    if (!user) return;
+
+    // Remove '/api/v1' to get the base server URL for Socket.IO
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:5000';
+    
+    // Connect to Socket.IO
+    const socket = io(baseUrl, {
+      withCredentials: true, // Essential since your backend uses HTTP-only cookies
+      query: { userId: user.id || user._id } // Pass user ID to backend to join user_${receiverId} room
+    });
+
+    socket.on('connect', () => {
+      console.log('Connected to real-time notification service');
+    });
+
+    // Listen for the event emitted by workflow.service.js
+    socket.on('new_file_received', (data) => {
+      // 1. Show the notification to the user
+      toast.success(
+        `New File Received!\nFile No: ${data?.fileNumber || 'Check your inbox'}`, 
+        { duration: 5000 }
+      );
+      
+      // 2. Silently background-refresh the Inbox cache
+      // This makes the new file appear instantly without refreshing the page
+      queryClient.invalidateQueries({ queryKey: ['inboxFiles'] });
+    });
+
+    // Cleanup connection when the user logs out or leaves the system
+    return () => {
+      socket.disconnect();
+    };
+  }, [user, queryClient]);
+
 
   const navItems = [
     { label: 'Create File', path: '/files/create', icon: FilePlus },

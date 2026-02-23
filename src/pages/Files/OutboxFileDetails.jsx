@@ -104,10 +104,14 @@ const OutboxFileDetails = () => {
               <div className="flex gap-2 shrink-0">
                 <button 
                   onClick={() => {
-                    const link = document.createElement('a'); link.href = selectedPdfUrl; link.setAttribute('target', '_blank');
-                    document.body.appendChild(link); link.click(); link.parentNode.removeChild(link);
+                    const link = document.createElement('a'); 
+                    link.href = selectedPdfUrl; 
+                    link.setAttribute('download', selectedPdfName || 'document.pdf'); 
+                    document.body.appendChild(link); 
+                    link.click(); 
+                    link.parentNode.removeChild(link);
                   }}
-                  className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors" title="Open in New Tab"
+                  className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors" title="Download File"
                 >
                   <Download size={18} />
                 </button>
@@ -134,35 +138,29 @@ const OutboxFileDetails = () => {
         {/* ========================================== */}
         <div className={`w-full flex flex-col transition-all duration-300 print:w-full print:block print:h-auto print:overflow-visible ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-full'}`}>
           
+          {/* 🟢 PRINT ONLY: FIXED REPEATING HEADER (OUTSIDE TABLE) */}
+          <div className="hidden print:flex fixed top-0 left-0 w-full justify-center bg-white z-[9999] pt-4 pb-2">
+            <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 tracking-widest text-black">
+              Notesheet
+            </h1>
+          </div>
+
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full print:border-none print:shadow-none print:block print:h-auto print:overflow-visible">
             
-            {/* Print Document Header */}
-            <div className="hidden print:block text-center mb-6">
-               <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4">Notesheet / Movement History</h1>
-            </div>
-
-            {/* Header / Subject Info */}
-            <div className="px-8 py-6 flex items-start justify-between border-b border-slate-100 bg-white shrink-0 print:px-0 print:py-4 print:border-black">
-              <div className="w-full">
-                <h1 className="text-xl text-slate-900 font-bold tracking-tight flex items-center gap-3 print:mb-2 print:text-black">
-                  <span className="hidden print:inline font-bold mr-1">Subject:</span> 
-                  <span>{file.subject}</span> 
-                  
-                  <span className="bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono px-2.5 py-1 rounded-md align-middle print:hidden">
+            {/* SCREEN ONLY: Header / Subject Info */}
+            <div className="px-8 py-5 flex items-start justify-between border-b border-slate-200 bg-white shadow-sm shrink-0 z-10 print:hidden">
+              <div className="w-full flex flex-col">
+                <h1 className="text-xl text-slate-900 font-bold tracking-tight flex items-center gap-3">
+                  <span>{file.subject}</span>
+                  <span className="bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono px-2.5 py-1 rounded-md align-middle">
                     {file.fileNumber}
                   </span>
                 </h1>
-                
-                <div className="hidden print:block text-sm font-bold text-gray-800 font-mono mb-2">
-                  File No: {file.fileNumber}
-                </div>
-
-                <div className="flex gap-2 mt-3 print:hidden">
-                    
+                <div className="flex gap-2 mt-3">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-200">{file.priority} PRIORITY</span>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-slate-400 print:hidden">
+              <div className="flex items-center gap-4 text-slate-400 mt-2">
                  <Printer 
                    size={20} 
                    className="cursor-pointer hover:text-slate-700 transition-colors" 
@@ -173,50 +171,76 @@ const OutboxFileDetails = () => {
             </div>
 
             {/* ==================================================== */}
-            {/* 🟢 PRINT ONLY: FORMAL TABLE FOR REMARKS              */}
+            {/* PRINT ONLY: Formal Table for Remarks                 */}
             {/* ==================================================== */}
-            <div className="hidden print:block print:w-full mt-6">
-              <table className="w-full table-fixed text-left border-collapse border border-gray-400 text-sm">
-                <thead>
-                  <tr className="bg-gray-100 border-b border-gray-400 text-black uppercase text-xs tracking-wider">
-                    <th className="p-3 border-r border-gray-400 w-[15%] align-top">Date & Time</th>
-                    <th className="p-3 border-r border-gray-400 w-[18%] align-top">From</th>
-                    <th className="p-3 border-r border-gray-400 w-[18%] align-top">To</th>
-                    <th className="p-3 border-r border-gray-400 w-[12%] align-top">Action</th>
-                    <th className="p-3 align-top w-[37%]">Remarks / Noting</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Always use 'history' mapping here so print is always ascending */}
-                  {history?.map((msg) => (
-                    <tr key={`print-${msg.id}`} className="border-b border-gray-400 break-inside-avoid align-top">
-                      <td className="p-3 border-r border-gray-400 text-xs text-gray-700">{msg.date}</td>
-                      <td className="p-3 border-r border-gray-400 break-words">
-                        <p className="font-bold text-black">{msg.sender}</p>
-                        <p className="text-xs text-gray-600">{msg.senderDesignation || 'System'}</p>
-                      </td>
-                      <td className="p-3 border-r border-gray-400 break-words">
-                        {msg.receiver ? (
-                          <>
-                            <p className="font-bold text-black">{msg.receiver}</p>
-                            <p className="text-xs text-gray-600">{msg.receiverDesignation}</p>
-                          </>
-                        ) : '-'}
-                      </td>
-                      <td className="p-3 border-r border-gray-400 font-bold text-xs uppercase text-gray-800 break-words">{msg.action}</td>
-                      <td className="p-3 text-black whitespace-pre-wrap break-words leading-relaxed">
+            {/* 🟢 FIX: Removed global border border-black from this table tag */}
+            <table className="hidden print:table w-full border-collapse text-black">
+              
+              <thead className="table-header-group">
+                {/* 1. Invisible Spacer so table doesn't hide behind fixed Notesheet header */}
+                <tr>
+                  <th colSpan={2} className="h-16 border-none bg-transparent"></th>
+                </tr>
+
+                {/* 2. The Subject and File Number Box */}
+                <tr>
+                  <th colSpan={2} className="p-0 border-t border-x border-b border-black">
+                    <div className="flex flex-col items-start text-left gap-2 p-3 bg-white w-full">
+                      <div className="text-lg flex gap-2 w-full">
+                        <span className="font-bold w-20 shrink-0">Subject:</span>
+                        <span className="font-medium flex-1">{file.subject}</span>
+                      </div>
+                      <div className="text-base font-mono flex gap-2 w-full">
+                        <span className="font-bold w-20 shrink-0">File No:</span>
+                        <span className="font-bold">{file.fileNumber}</span>
+                      </div>
+                    </div>
+                  </th>
+                </tr>
+
+                {/* 3. The Column Headers */}
+                <tr>
+                  <th className="p-2 border border-black w-[75%] text-left font-bold uppercase tracking-widest text-xs bg-gray-100">Notes / Remarks</th>
+                  <th className="p-2 border border-black w-[25%] text-center font-bold uppercase tracking-widest text-xs bg-gray-100">Sign & Details</th>
+                </tr>
+              </thead>
+              
+              <tbody className="table-row-group">
+                {history?.map((msg) => (
+                  <tr key={`print-${msg.id}`} className="break-inside-avoid">
+                    <td className="p-4 border border-black align-top">
+                      <div className="text-[10px] font-bold uppercase text-gray-500 mb-2 tracking-widest">
+                         {msg.action}
+                      </div>
+                      <div className="text-[15px] whitespace-pre-wrap leading-relaxed font-medium text-black">
                         {msg.remarks || '-'}
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="mt-2 text-xs italic text-gray-600">
-                            <strong>Attached:</strong> {msg.attachments.map(a => a.name).join(', ')}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mt-4 text-xs italic text-gray-800 bg-gray-50 p-2 border border-gray-300 rounded">
+                          <strong>Attached Document(s):</strong> {msg.attachments.map(a => a.name).join(', ')}
+                        </div>
+                      )}
+                      {msg.receiver && (
+                        <div className="mt-6 pt-3 border-t border-dashed border-gray-400 flex items-center gap-2">
+                          <CornerRightDown size={14} className="text-gray-500" />
+                          <span className="italic text-gray-600">Forwarded to:</span>
+                          <span className="font-bold text-gray-800 text-xs">{msg.receiver}</span>
+                          <span className="text-gray-700 text-xs">({msg.receiverDesignation})</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-4 border border-black align-bottom text-center">
+                      <div className="flex flex-col items-center justify-end h-full min-h-[120px]">
+                        <div className="w-full h-16 mb-2"></div> 
+                        <p className="font-bold text-sm text-black">{msg.sender}</p>
+                        <p className="text-[10px] font-bold text-gray-800 uppercase mt-0.5 max-w-full break-words">{msg.senderDesignation || 'System'}</p>
+                        <p className="text-[10px] text-gray-500 mt-2 font-medium">{msg.date}</p>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
             {/* ==================================================== */}
             {/* SCREEN ONLY: VERTICAL THREAD LAYOUT                  */}
