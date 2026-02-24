@@ -40,7 +40,9 @@ export const endpoints = {
     resetPassword: (data) => api.post('/auth/reset-password', data),
   },
   users: {
-    create: (data) => api.post('/users', data),
+   create: (data) => api.post('/users', data, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
     getAll: (query = '') => api.get(`/users${query}`),
     update: (id, data) => api.patch(`/users/${id}`, data),
     getDepartments: () => api.get('/users/departments'),
