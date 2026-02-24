@@ -138,12 +138,6 @@ const OutboxFileDetails = () => {
         {/* ========================================== */}
         <div className={`w-full flex flex-col transition-all duration-300 print:w-full print:block print:h-auto print:overflow-visible ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-full'}`}>
           
-          {/* 🟢 PRINT ONLY: FIXED REPEATING HEADER (OUTSIDE TABLE) */}
-          <div className="hidden print:flex fixed top-0 left-0 w-full justify-center bg-white z-[9999] pt-4 pb-2">
-            <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 tracking-widest text-black">
-              Notesheet
-            </h1>
-          </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full print:border-none print:shadow-none print:block print:h-auto print:overflow-visible">
             
@@ -174,81 +168,92 @@ const OutboxFileDetails = () => {
             {/* PRINT ONLY: Formal Table for Remarks                 */}
             {/* ==================================================== */}
             {/* 🟢 FIX: Removed global border border-black from this table tag */}
-            <table className="hidden print:table w-full border-collapse text-black">
-              
-              <thead className="table-header-group">
-                {/* 1. Invisible Spacer so table doesn't hide behind fixed Notesheet header */}
-                <tr>
-                  <th colSpan={2} className="h-16 border-none bg-transparent"></th>
-                </tr>
-
-                {/* 2. The Subject and File Number Box */}
-                <tr>
-                  <th colSpan={2} className="p-0 border-t border-x border-b border-black">
-                    <div className="flex flex-col items-start text-left gap-2 p-3 bg-white w-full">
-                      <div className="text-lg flex gap-2 w-full">
-                        <span className="font-bold w-20 shrink-0">Subject:</span>
-                        <span className="font-medium flex-1">{file.subject}</span>
-                      </div>
-                      <div className="text-base font-mono flex gap-2 w-full">
-                        <span className="font-bold w-20 shrink-0">File No:</span>
-                        <span className="font-bold">{file.fileNumber}</span>
-                      </div>
+           <table className="hidden print:table w-[75%] mx-auto border-collapse border-l-2 border-r-2 border-black bg-white text-black font-serif text-[11pt] leading-snug h-[calc(100vh-3cm)]">
+            
+            <thead className="table-header-group">
+              {/* Header Title & Subject */}
+             <tr>
+                  {/* 🟢 relative allows absolute positioning inside */}
+                  <td colSpan={2} className="px-8 pt-8 pb-4 bg-white relative">
+                    
+                    {/* 🟢 THIS IS THE FULL WIDTH LINE (100vw) STRETCHING OUT OF THE BOX */}
+                    <div className="absolute bottom-0 left-[50%]  -translate-x-1/2 border-b-[2px] border-black"></div>
+                    
+                    <div className="text-center">
+                      <h1 className="text-xl font-bold uppercase tracking-widest">Maharashtra Mandal Raipur</h1>
+                      <h2 className="text-lg font-bold uppercase underline decoration-1 underline-offset-4 mt-1">Notesheet</h2>
                     </div>
-                  </th>
+                    <div className="mt-8 flex justify-between text-sm font-semibold text-left">
+                      <span>Subject: {file.subject}</span>
+                      <span>File No: {file.fileNumber}</span>
+                    </div>
+                  </td>
                 </tr>
+                <tr className="border-b-[2px] border-black font-bold text-xs uppercase bg-white"></tr>
+              {/* Column Headers */}
+             
+            </thead>
+            
+            {/* The actual comments */}
+            <tbody className="table-row-group align-top">
+              {history?.map((msg, index) => (
+                <tr key={`print-note-${msg.id}`} className="break-inside-avoid">
+                  
+                  {/* Column 1: Notes & Orders */}
+                  <td className="w-[65%] pl-8 pr-4 pt-6 pb-4">
+                     <div className="flex gap-2">
+                       <span className="font-bold text-xs">{index + 1}.</span>
+                       <div className="flex-1">
+                         <div className="text-[13px] whitespace-pre-wrap text-justify leading-relaxed">
+                           {msg.remarks || '-'}
+                         </div>
+                         {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="mt-2 text-[10px] italic text-gray-700">
+                              *Encl: {msg.attachments.map(a => a.name).join(', ')}
+                            </div>
+                         )}
+                         {msg.receiver && (
+                            <div className="mt-4 text-[12px] font-bold">
+                              {msg.receiver} <span className="text-[10px] font-medium">({msg.receiverDesignation})</span>
+                            </div>
+                         )}
+                       </div>
+                     </div>
+                  </td>
 
-                {/* 3. The Column Headers */}
-                <tr>
-                  <th className="p-2 border border-black w-[75%] text-left font-bold uppercase tracking-widest text-xs bg-gray-100">Notes / Remarks</th>
-                  <th className="p-2 border border-black w-[25%] text-center font-bold uppercase tracking-widest text-xs bg-gray-100">Sign & Details</th>
+                  {/* Column 2: Signatures & Date */}
+                  <td className="w-[35%] pr-8 pt-6 text-right pb-4">
+                     <div className="h-10 w-full flex items-end justify-end mb-1">
+                        {msg.senderSignature ? (
+                          <img 
+                            src={`http://localhost:9000/e-office-files/${msg.senderSignature}`} 
+                            alt="Signature" 
+                            className="max-h-full max-w-[120px] object-contain mix-blend-multiply" 
+                          />
+                        ) : (
+                          <span className="text-[9px] text-gray-400 italic">No Signature</span>
+                        )}
+                     </div>
+                     <p className="font-bold text-[11px] leading-tight m-0 p-0">{msg.sender}</p>
+                     <p className="text-[9px] font-bold uppercase m-0 p-0">{msg.senderDesignation || 'System'}</p>
+                     <p className="text-[10px] text-gray-600 font-medium mt-1 m-0 p-0">{msg.date}</p>
+                  </td>
                 </tr>
-              </thead>
-              
-              <tbody className="table-row-group">
-                {history?.map((msg) => (
-                  <tr key={`print-${msg.id}`} className="break-inside-avoid">
-                    <td className="p-4 border border-black align-top">
-                      <div className="text-[10px] font-bold uppercase text-gray-500 mb-2 tracking-widest">
-                         {msg.action}
-                      </div>
-                      <div className="text-[15px] whitespace-pre-wrap leading-relaxed font-medium text-black">
-                        {msg.remarks || '-'}
-                      </div>
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="mt-4 text-xs italic text-gray-800 bg-gray-50 p-2 border border-gray-300 rounded">
-                          <strong>Attached Document(s):</strong> {msg.attachments.map(a => a.name).join(', ')}
-                        </div>
-                      )}
-                      {msg.receiver && (
-                        <div className="mt-6 pt-3 border-t border-dashed border-gray-400 flex items-center gap-2">
-                          <CornerRightDown size={14} className="text-gray-500" />
-                          <span className="italic text-gray-600">Forwarded to:</span>
-                          <span className="font-bold text-gray-800 text-xs">{msg.receiver}</span>
-                          <span className="text-gray-700 text-xs">({msg.receiverDesignation})</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-4 border border-black align-bottom text-center">
-                      <div className="flex flex-col items-center justify-end h-full min-h-[120px]">
-                        <div className="w-full h-16 mb-2"></div> 
-                        <p className="font-bold text-sm text-black">{msg.sender}</p>
-                        <p className="text-[10px] font-bold text-gray-800 uppercase mt-0.5 max-w-full break-words">{msg.senderDesignation || 'System'}</p>
-                        <p className="text-[10px] text-gray-500 mt-2 font-medium">{msg.date}</p>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ))}
 
+              {/* 🟢 Spacer Row: This forces the vertical lines to stretch all the way to the bottom of the page */}
+              <tr>
+                <td colSpan={2} className="h-full"></td>
+              </tr>
+            </tbody>
+          </table>
             {/* ==================================================== */}
             {/* SCREEN ONLY: VERTICAL THREAD LAYOUT                  */}
             {/* ==================================================== */}
             <div className={`p-6 bg-slate-50/50 print:hidden min-h-[400px] ${selectedPdfUrl ? 'flex-1 overflow-y-auto' : ''}`}>
               
               <div className="flex justify-between items-center mb-6 px-1">
-                <span className="text-sm font-bold text-slate-700">Official Movement History</span>
+                <span className="text-sm font-bold text-slate-700">Audit Trail</span>
                 <button 
                   onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
                   className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm"

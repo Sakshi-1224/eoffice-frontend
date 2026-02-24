@@ -40,8 +40,24 @@ const CreateUser = () => {
 
   const onSubmit = async (data) => {
     try {
-      await endpoints.users.create(data);
+     const formData = new FormData();
+      formData.append('fullName', data.fullName);
+      formData.append('phoneNumber', data.phoneNumber);
+      formData.append('password', data.password);
+      formData.append('systemRole', data.systemRole);
+      formData.append('designationId', data.designationId);
+      formData.append('departmentId', data.departmentId);
+      
+      if (data.email) formData.append('email', data.email);
+      
+      // Append the signature file if the admin selected one
+      if (data.signature && data.signature.length > 0) {
+        formData.append('signature', data.signature[0]);
+      }
+
+      await endpoints.users.create(formData);
       toast.success('Official registered successfully');
+     
       reset();
     } catch (e) { 
       toast.error(e.response?.data?.message || 'Registration failed');
@@ -150,7 +166,16 @@ const CreateUser = () => {
             {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
-        
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Digital Signature (Image)</label>
+          <input 
+            type="file" 
+            accept="image/jpeg, image/png, image/jpg"
+            {...register("signature")} 
+            className="w-full border border-slate-300 p-2.5 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" 
+          />
+          <p className="text-xs text-slate-500 mt-1">Allowed: JPG, PNG (Max 100KB)</p>
+        </div>
         <div className="md:col-span-2 pt-4">
           <button type="submit" disabled={isSubmitting} className="w-full bg-teal-600 text-white py-3 rounded-xl hover:bg-teal-700 font-bold shadow-md shadow-teal-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
             {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : 'Create Account'}
