@@ -65,7 +65,7 @@ export const endpoints = {
     
     search: (queryString) => api.get(`/files/search?${queryString}`),
 
-    history: (id) => api.get(`/files/${id}/history`),
+   history: (id, params) => api.get(`/files/${id}/history`, { params }),
     
     downloadAttachment: (attachmentId) => api.get(`/files/attachment/${attachmentId}/download`, { responseType: 'blob' }),
    
