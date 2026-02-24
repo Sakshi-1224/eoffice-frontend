@@ -5,21 +5,19 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { 
   Paperclip, ArrowLeft, Loader2, X, Printer, Send, Users, 
-  Trash2, ShieldCheck, CornerRightDown, Clock, FileText, Download, ArrowUpDown
+  Trash2, ShieldCheck, CornerRightDown, Clock, FileText, Download
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 const FileDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  const messagesEndRef = useRef(null);
-  
   const [selectedPdfUrl, setSelectedPdfUrl] = useState(null);
   const [selectedPdfName, setSelectedPdfName] = useState('');
-  const [sortOrder, setSortOrder] = useState('asc'); 
-
+const [activeMessageIndex, setActiveMessageIndex] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState(null);
@@ -33,13 +31,23 @@ const FileDetails = () => {
   const [composeHeight, setComposeHeight] = useState(260);
 
   const dropdownRef = useRef(null);
+  const parentRef = useRef(null); // Reference for the Virtualizer
+  const hasScrolledToBottom = useRef(false); // Tracks initial load scroll
 
-  const { data: fileData, isLoading: isLoadingFile } = useQuery({
+  // 1. Fetch data (Backend is sending newest first)
+  const { 
+    data, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage, 
+    isLoading: isLoadingFile 
+  } = useInfiniteQuery({
     queryKey: ['fileDetails', id],
-    queryFn: async () => {
-      const response = await endpoints.files.history(id);
-      return response.data.data;
-    }
+    queryFn: async ({ pageParam = null }) => {
+      const response = await endpoints.files.history(id, { cursor: pageParam, limit: 20 });
+      return response.data;
+    },
+    getNextPageParam: (lastPage) => lastPage?.nextCursor || undefined,
   });
 
   const { data: allUsers = [] } = useQuery({
@@ -51,7 +59,51 @@ const FileDetails = () => {
     staleTime: 1000 * 60 * 60 * 24 
   });
 
-  const data = fileData;
+  const file = data?.pages[0]?.data?.fileInfo || {};
+
+  // 2. Flatten History (Older pages pushed to the TOP of the array)
+  const displayedHistory = data?.pages.reduce((acc, page) => {
+    return [...(page.data?.history || []), ...acc];
+  }, []) || [];
+
+  // 3. Setup Virtualizer
+  const rowVirtualizer = useVirtualizer({
+    count: hasNextPage ? displayedHistory.length + 1 : displayedHistory.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 220, 
+    overscan: 10,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
+  // 4. Auto-Scroll to Bottom on INITIAL load only
+  useEffect(() => {
+    if (displayedHistory.length > 0 && !hasScrolledToBottom.current) {
+      setTimeout(() => {
+        rowVirtualizer.scrollToIndex(displayedHistory.length - 1, { align: 'end', behavior: 'auto' });
+        hasScrolledToBottom.current = true;
+      }, 50);
+    }
+  }, [displayedHistory.length, rowVirtualizer]);
+
+  useEffect(() => {
+    if (activeMessageIndex !== null) {
+      setTimeout(() => {
+        // align: 'center' keeps the clicked message perfectly in the middle of the screen
+        rowVirtualizer.scrollToIndex(activeMessageIndex, { align: 'center', behavior: 'auto' });
+      }, 300); // 300ms gives the CSS flexbox enough time to finish resizing
+    }
+  }, [selectedPdfUrl, activeMessageIndex, rowVirtualizer]);
+ 
+  // 5. TRIGGER FETCH ON SCROLL UP
+  useEffect(() => {
+    const firstVisibleItem = virtualItems[0];
+    if (!firstVisibleItem) return;
+
+    if (firstVisibleItem.index <= 1 && hasNextPage && !isFetchingNextPage && hasScrolledToBottom.current) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, fetchNextPage, isFetchingNextPage, virtualItems]);
 
   useEffect(() => {
     return () => {
@@ -68,14 +120,6 @@ const FileDetails = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    if (data && sortOrder === 'asc') {
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 100);
-    }
-  }, [data, selectedPdfUrl]);
 
   const getDesignationName = (val) => val?.name || (typeof val === 'string' ? val : '');
 
@@ -133,56 +177,95 @@ const FileDetails = () => {
   const startResizing = (e) => {
     e.preventDefault();
     const isTouch = e.type === 'touchstart';
-    
     const onMouseMove = (moveEvent) => {
       const clientY = isTouch ? moveEvent.touches[0].clientY : moveEvent.clientY;
       const newHeight = window.innerHeight - clientY - 80; 
-      
-      if (newHeight < 100) {
-        setComposeHeight(0);
-      } else if (newHeight <= window.innerHeight * 0.8) {
-        setComposeHeight(newHeight);
-      }
+      if (newHeight < 100) setComposeHeight(0);
+      else if (newHeight <= window.innerHeight * 0.8) setComposeHeight(newHeight);
     };
-    
     const onMouseUp = () => {
       document.removeEventListener(isTouch ? "touchmove" : "mousemove", onMouseMove);
       document.removeEventListener(isTouch ? "touchend" : "mouseup", onMouseUp);
     };
-    
     document.addEventListener(isTouch ? "touchmove" : "mousemove", onMouseMove, { passive: false });
     document.addEventListener(isTouch ? "touchend" : "mouseup", onMouseUp);
   };
 
   if (isLoadingFile || !data) {
-    return (
-      <div className="p-10 flex justify-center mt-20">
-        <Loader2 className="animate-spin text-slate-600" size={32}/>
-      </div>
-    );
+    return <div className="p-10 flex justify-center mt-20"><Loader2 className="animate-spin text-slate-600" size={32}/></div>;
   }
-  
-  const { fileInfo: file, history } = data;
-  
-  const displayedHistory = sortOrder === 'asc' 
-    ? history 
-    : [...(history || [])].reverse();
 
   return (
-    <div className={`mx-auto animate-fade-in-up transition-all duration-300 flex flex-col print:block print:h-auto print:bg-white print:p-0 ${selectedPdfUrl ? 'max-w-[1600px] px-4 h-[calc(100vh-80px)]' : 'max-w-[67rem]'}`}>
+    <div className={`mx-auto animate-fade-in-up transition-all duration-300 flex flex-col print:block print:h-auto print:bg-white print:p-0 print:max-w-full print:w-full ${selectedPdfUrl ? 'max-w-[1600px] px-4 h-[calc(100vh-80px)]' : 'max-w-[67rem]'}`}>
       
-      {/* 🟢 HIDES BROWSER DATE/URL HEADERS ON PRINT */}
-     
-
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-4 mt-2 text-sm font-medium transition-colors shrink-0 w-fit print:hidden">
         <ArrowLeft size={16} /> Back
       </button>
 
-     <div className={`flex flex-col lg:flex-row gap-6 w-full print:block print:overflow-visible print:w-full print:gap-0 flex-1 overflow-hidden`}>
+      {/* ==================================================== */}
+      {/* 🖨️ THE PRINT FIX: ABSOLUTE OVERLAY                     */}
+      {/* ==================================================== */}
+      <div className="hidden print:block print:absolute print:inset-0 print:w-full print:min-h-screen print:bg-white print:z-[99999] print:m-0 print:p-0">
+        <table className="w-[75%] mx-auto border-collapse border-l-2 border-r-2 border-black bg-white text-black font-serif text-[11pt] leading-snug min-h-screen">
+          <thead className="table-header-group">
+            <tr>
+              <td colSpan={2} className="px-8 pt-8 pb-4 bg-white relative">
+                <div className="absolute bottom-0 left-[50%] -translate-x-1/2 border-b-[2px] border-black w-full"></div>
+                <div className="text-center">
+                  <h1 className="text-xl font-bold uppercase tracking-widest">Maharashtra Mandal Raipur</h1>
+                  <h2 className="text-lg font-bold uppercase underline decoration-1 underline-offset-4 mt-1">Notesheet</h2>
+                </div>
+                <div className="mt-8 flex justify-between text-sm font-semibold text-left">
+                  <span>Subject: {file.subject}</span>
+                  <span>File No: {file.fileNumber}</span>
+                </div>
+              </td>
+            </tr>
+            <tr className="border-b-[2px] border-black font-bold text-xs uppercase bg-white"></tr>
+          </thead>
+          <tbody className="table-row-group align-top">
+            {displayedHistory.map((msg, index) => (
+              <tr key={`print-note-${msg.id}`} className="break-inside-avoid">
+                <td className="w-[65%] pl-8 pr-4 pt-6 pb-4">
+                    <div className="flex gap-2">
+                      <span className="font-bold text-xs">{index + 1}.</span>
+                      <div className="flex-1">
+                        <div className="text-[13px] whitespace-pre-wrap text-justify leading-relaxed">{msg.remarks || '-'}</div>
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <div className="mt-2 text-[10px] italic text-gray-700">*Encl: {msg.attachments.map(a => a.name).join(', ')}</div>
+                        )}
+                        {msg.receiver && (
+                          <div className="mt-4 text-[12px] font-bold">{msg.receiver} <span className="text-[10px] font-medium">({msg.receiverDesignation})</span></div>
+                        )}
+                      </div>
+                    </div>
+                </td>
+                <td className="w-[35%] pr-8 pt-6 text-right pb-4">
+                    <div className="h-10 w-full flex items-end justify-end mb-1">
+                      {msg.senderSignature ? (
+                        <img src={`http://localhost:9000/e-office-files/${msg.senderSignature}`} alt="Signature" className="max-h-full max-w-[120px] object-contain mix-blend-multiply" />
+                      ) : (
+                        <span className="text-[9px] text-gray-400 italic">No Signature</span>
+                      )}
+                    </div>
+                    <p className="font-bold text-[11px] leading-tight m-0 p-0">{msg.sender}</p>
+                    <p className="text-[9px] font-bold uppercase m-0 p-0">{msg.senderDesignation || 'System'}</p>
+                    <p className="text-[10px] text-gray-600 font-medium mt-1 m-0 p-0">{msg.date}</p>
+                </td>
+              </tr>
+            ))}
+            <tr><td colSpan={2} className="h-full"></td></tr>
+          </tbody>
+        </table>
+      </div>
+      {/* ==================================================== */}
 
-        {/* 📄 PDF VIEWER (Hidden on Print) */}
+     {/* 🟢 print:hidden ADDED TO WRAPPER SO DOM DOES NOT CONFLICT WITH PRINT OVERLAY */}
+     <div className={`flex flex-col lg:flex-row gap-6 w-full print:hidden flex-1 overflow-hidden`}>
+
+        {/* 📄 PDF VIEWER */}
         {selectedPdfUrl && (
-          <div className="w-full lg:w-[60%] h-full bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300 print:hidden">
+          <div className="w-full lg:w-[60%] h-full bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="bg-red-100 text-red-600 p-2 rounded-lg shrink-0"><FileText size={20}/></div>
@@ -195,169 +278,84 @@ const FileDetails = () => {
                     link.href = selectedPdfUrl; 
                     link.setAttribute('download', selectedPdfName || 'document.pdf'); 
                     document.body.appendChild(link); 
-                    link.click(); 
-                    link.parentNode.removeChild(link);
+                    link.click(); link.parentNode.removeChild(link);
                   }}
-                  className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors" 
-                  title="Download File"
+                  className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors" title="Download File"
                 >
                   <Download size={18} />
                 </button>
-                <button 
-                  onClick={() => { setSelectedPdfUrl(null); setSelectedPdfName(''); }} 
-                  className="p-2 text-slate-500 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors" title="Close Viewer"
-                >
+                <button onClick={() => { setSelectedPdfUrl(null); setSelectedPdfName(''); }} className="p-2 text-slate-500 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors">
                   <X size={18} />
                 </button>
               </div>
             </div>
             <div className="flex-1 bg-slate-200/50 p-2 md:p-4">
-               <iframe 
-                 src={`${selectedPdfUrl}#toolbar=0`} 
-                 className="w-full h-full rounded-xl shadow-sm border border-slate-300 bg-white"
-                 title="PDF Viewer"
-               />
+               <iframe src={`${selectedPdfUrl}#toolbar=0`} className="w-full h-full rounded-xl shadow-sm border border-slate-300 bg-white" title="PDF Viewer" />
             </div>
           </div>
         )}
 
         {/* 💬 RIGHT PANE: MAIN UI / CHATS */}
-        <div className={`w-full flex flex-col transition-all duration-300 print:w-full print:block print:h-auto ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-[calc(100vh-120px)]'}`}>
+        <div className={`w-full flex flex-col transition-all duration-300 ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-[calc(100vh-120px)]'}`}>
           
-          {/* ==================================================== */}
-          {/* 🖨️ GOVERNMENT FORMAT PRINT LAYOUT (CONTINUOUS LINES) */}
-          {/* ==================================================== */}
-          {/* 🟢 Table uses border-l-2 and border-r-2 ONLY, and stretches to fill the page height */}
-          <table className="hidden print:table w-[75%] mx-auto border-collapse border-l-2 border-r-2 border-black bg-white text-black font-serif text-[11pt] leading-snug h-[calc(100vh-3cm)]">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full">
             
-            <thead className="table-header-group">
-              {/* Header Title & Subject */}
-             <tr>
-                  {/* 🟢 relative allows absolute positioning inside */}
-                  <td colSpan={2} className="px-8 pt-8 pb-4 bg-white relative">
-                    
-                    {/* 🟢 THIS IS THE FULL WIDTH LINE (100vw) STRETCHING OUT OF THE BOX */}
-                    <div className="absolute bottom-0 left-[50%]  -translate-x-1/2 border-b-[2px] border-black"></div>
-                    
-                    <div className="text-center">
-                      <h1 className="text-xl font-bold uppercase tracking-widest">Maharashtra Mandal Raipur</h1>
-                      <h2 className="text-lg font-bold uppercase underline decoration-1 underline-offset-4 mt-1">Notesheet</h2>
-                    </div>
-                    <div className="mt-8 flex justify-between text-sm font-semibold text-left">
-                      <span>Subject: {file.subject}</span>
-                      <span>File No: {file.fileNumber}</span>
-                    </div>
-                  </td>
-                </tr>
-                <tr className="border-b-[2px] border-black font-bold text-xs uppercase bg-white"></tr>
-              {/* Column Headers */}
-             
-            </thead>
-            
-            {/* The actual comments */}
-            <tbody className="table-row-group align-top">
-              {history?.map((msg, index) => (
-                <tr key={`print-note-${msg.id}`} className="break-inside-avoid">
-                  
-                  {/* Column 1: Notes & Orders */}
-                  <td className="w-[65%] pl-8 pr-4 pt-6 pb-4">
-                     <div className="flex gap-2">
-                       <span className="font-bold text-xs">{index + 1}.</span>
-                       <div className="flex-1">
-                         <div className="text-[13px] whitespace-pre-wrap text-justify leading-relaxed">
-                           {msg.remarks || '-'}
-                         </div>
-                         {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="mt-2 text-[10px] italic text-gray-700">
-                              *Encl: {msg.attachments.map(a => a.name).join(', ')}
-                            </div>
-                         )}
-                         {msg.receiver && (
-                            <div className="mt-4 text-[12px] font-bold">
-                              {msg.receiver} <span className="text-[10px] font-medium">({msg.receiverDesignation})</span>
-                            </div>
-                         )}
-                       </div>
-                     </div>
-                  </td>
-
-                  {/* Column 2: Signatures & Date */}
-                  <td className="w-[35%] pr-8 pt-6 text-right pb-4">
-                     <div className="h-10 w-full flex items-end justify-end mb-1">
-                        {msg.senderSignature ? (
-                          <img 
-                            src={`http://localhost:9000/e-office-files/${msg.senderSignature}`} 
-                            alt="Signature" 
-                            className="max-h-full max-w-[120px] object-contain mix-blend-multiply" 
-                          />
-                        ) : (
-                          <span className="text-[9px] text-gray-400 italic">No Signature</span>
-                        )}
-                     </div>
-                     <p className="font-bold text-[11px] leading-tight m-0 p-0">{msg.sender}</p>
-                     <p className="text-[9px] font-bold uppercase m-0 p-0">{msg.senderDesignation || 'System'}</p>
-                     <p className="text-[10px] text-gray-600 font-medium mt-1 m-0 p-0">{msg.date}</p>
-                  </td>
-                </tr>
-              ))}
-
-              {/* 🟢 Spacer Row: This forces the vertical lines to stretch all the way to the bottom of the page */}
-              <tr>
-                <td colSpan={2} className="h-full"></td>
-              </tr>
-            </tbody>
-          </table>
-          {/* ==================================================== */}
-
-
-          {/* 💻 SCREEN ONLY UI (HIDDEN ON PRINT) */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full print:hidden">
-            
-            {/* Header / Subject Info */}
+            {/* Header */}
             <div className="px-8 py-5 flex items-start justify-between border-b border-slate-200 bg-white shadow-sm shrink-0 z-10">
               <div className="w-full flex flex-col">
                 <h1 className="text-xl text-slate-900 font-bold tracking-tight flex items-center gap-3">
                   <span>{file.subject}</span>
-                  <span className="bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono px-2.5 py-1 rounded-md align-middle">
-                    {file.fileNumber}
-                  </span>
+                  <span className="bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono px-2.5 py-1 rounded-md align-middle">{file.fileNumber}</span>
                 </h1>
-                <div className="flex gap-2 mt-3">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-200">{file.priority} PRIORITY</span>
-                </div>
               </div>
               <div className="flex items-center gap-4 text-slate-400 mt-2">
-                 <Printer 
-                   size={20} 
-                   className="cursor-pointer hover:text-slate-700 transition-colors" 
-                   title="Print Trail"
-                   onClick={() => window.print()}
-                 />
+                 <Printer size={20} className="cursor-pointer hover:text-slate-700 transition-colors" onClick={() => window.print()} />
               </div>
             </div>
 
-            {/* VERTICAL THREAD LAYOUT */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+            {/* VIRTUALIZED VERTICAL THREAD LAYOUT */}
+            <div ref={parentRef} className="flex-1 overflow-y-auto p-6 bg-slate-50/50 flex flex-col" style={{ overflowAnchor: 'auto' }}>
               
-              <div className="flex justify-between items-center mb-6 px-1">
+              <div className="flex justify-between items-center mb-6 px-1 shrink-0">
                 <span className="text-sm font-bold text-slate-700">Audit Trail</span>
-                <button 
-                  onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                  className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm"
-                  title="Filter by Date/Time"
-                >
-                  <ArrowUpDown size={14} />
-                  {sortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
-                </button>
               </div>
 
-              <div className="space-y-4">
-                {displayedHistory?.map((msg) => {
-                   const isForward = msg.action === 'FORWARD';
+              <div className="w-full relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                {virtualItems.map((virtualItem) => {
+                  
+                  // The Loader is now at the TOP (Index 0)
+                  const isLoaderRow = hasNextPage && virtualItem.index === 0;
+                  
+                  // Adjust index to map correctly to data
+                  const dataIndex = hasNextPage ? virtualItem.index - 1 : virtualItem.index;
+                  const msg = displayedHistory[dataIndex];
+
+                  if (isLoaderRow) {
+                    return (
+                      <div
+                        key={virtualItem.key}
+                        className="absolute top-0 left-0 w-full flex justify-center py-4"
+                        style={{ transform: `translateY(${virtualItem.start}px)` }}
+                        ref={rowVirtualizer.measureElement}
+                      >
+                        <Loader2 className="animate-spin text-slate-400" size={24} />
+                      </div>
+                    );
+                  }
+
+                  if (!msg) return null;
+
+                  const isForward = msg.action === 'FORWARD';
                    
-                   return (
-                     <div key={msg.id} className="w-full">
-                       <div className={`w-full bg-white p-5 rounded-2xl shadow-sm border transition-all ${isForward ? 'border-blue-100/60 hover:border-blue-200' : 'border-emerald-100/60 hover:border-emerald-200'}`}>
+                  return (
+                    <div 
+                      key={virtualItem.key} 
+                      className="absolute top-0 left-0 w-full pb-4"
+                      style={{ transform: `translateY(${virtualItem.start}px)` }}
+                      data-index={virtualItem.index} 
+                      ref={rowVirtualizer.measureElement}
+                    >
+                      <div className={`w-full bg-white p-5 rounded-2xl shadow-sm border transition-all ${isForward ? 'border-blue-100/60 hover:border-blue-200' : 'border-emerald-100/60 hover:border-emerald-200'}`}>
                          
                          <div className="flex justify-between items-start mb-4">
                             <div className="flex items-start gap-4">
@@ -380,11 +378,7 @@ const FileDetails = () => {
                             <div className="text-right shrink-0 flex flex-col items-end">
                               <div className="flex items-center gap-3 mb-2">
                                 {msg.senderSignature && (
-                                  <img 
-                                    src={`http://localhost:9000/e-office-files/${msg.senderSignature}`} 
-                                    alt="Sign" 
-                                    className="h-10 w-auto object-contain mix-blend-multiply"
-                                  />
+                                  <img src={`http://localhost:9000/e-office-files/${msg.senderSignature}`} alt="Sign" className="h-10 w-auto object-contain mix-blend-multiply" />
                                 )}
                                 <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${isForward ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                                   {msg.action}
@@ -403,11 +397,7 @@ const FileDetails = () => {
                          {msg.attachments && msg.attachments.length > 0 && (
                             <div className="mt-4 ml-0 md:ml-14 flex flex-wrap gap-4">
                               {msg.attachments.map(att => (
-                                 <div 
-                                   key={att.id} 
-                                   onClick={() => handleDownload(att.id, att.name)} 
-                                   className={`group relative flex flex-col w-40 rounded-xl overflow-hidden cursor-pointer shadow-sm border transition-all hover:shadow-md hover:-translate-y-1 ${selectedPdfUrl && selectedPdfName === att.name ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${isForward ? 'border-blue-200 hover:border-blue-400' : 'border-emerald-200 hover:border-emerald-400'}`}
-                                 >
+                                 <div key={att.id} onClick={() =>{setActiveMessageIndex(virtualItem.index); handleDownload(att.id, att.name);}} className={`group relative flex flex-col w-40 rounded-xl overflow-hidden cursor-pointer shadow-sm border transition-all hover:shadow-md hover:-translate-y-1 ${selectedPdfUrl && selectedPdfName === att.name ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${isForward ? 'border-blue-200 hover:border-blue-400' : 'border-emerald-200 hover:border-emerald-400'}`}>
                                     <div className={`h-24 flex items-center justify-center p-2 border-b transition-colors ${isForward ? 'bg-gradient-to-br from-blue-50 to-blue-100/50 group-hover:from-blue-100' : 'bg-gradient-to-br from-emerald-50 to-emerald-100/50 group-hover:from-emerald-100'}`}>
                                        <div className="bg-white w-14 h-20 rounded shadow border border-slate-200 p-2 flex flex-col gap-1.5 relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
                                           <div className="w-full h-1 bg-slate-200 rounded-full"></div>
@@ -435,31 +425,24 @@ const FileDetails = () => {
                      </div>
                    );
                 })}
-                <div ref={messagesEndRef} className="h-1"></div>
               </div>
             </div>
 
-            {/* Draggable Resizer Line (with double-click support) */}
+            {/* Draggable Resizer Line */}
             <div 
               onMouseDown={startResizing}
               onTouchStart={startResizing}
               onDoubleClick={() => setComposeHeight(composeHeight === 0 ? 260 : 0)}
               className={`w-full cursor-row-resize bg-slate-100 hover:bg-teal-50 transition-colors flex items-center justify-center shrink-0 group border-y border-slate-200 z-10 relative ${composeHeight === 0 ? 'h-6' : 'h-3'}`}
-              title="Drag or double-click to toggle"
             >
               <div className="w-12 h-1 bg-slate-400 rounded-full group-hover:bg-teal-500 transition-colors"></div>
               {composeHeight === 0 && (
-                <span className="absolute text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-20 pointer-events-none">
-                  Open Remarks
-                </span>
+                <span className="absolute text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-20 pointer-events-none">Open Remarks</span>
               )}
             </div>
 
-            {/* Conditional overflow and z-30 so the dropdown can escape the box */}
-            <div 
-              className={`bg-slate-50/50 rounded-b-2xl shrink-0 flex flex-col relative z-30 ${composeHeight === 0 ? 'overflow-hidden' : 'overflow-visible'}`}
-              style={{ height: composeHeight }}
-            >
+            {/* Compose Area Dropdown */}
+            <div className={`bg-slate-50/50 rounded-b-2xl shrink-0 flex flex-col relative z-30 ${composeHeight === 0 ? 'overflow-hidden' : 'overflow-visible'}`} style={{ height: composeHeight }}>
               <div className={`flex-1 flex flex-col h-full ${selectedPdfUrl ? 'px-6 pb-6 pt-3' : 'px-8 pb-8 pt-4'}`}>
                 <div className={`border border-slate-300 rounded-2xl shadow-lg transition-all bg-white flex flex-col h-full ${composeHeight === 0 ? 'overflow-hidden' : 'overflow-visible'}`}>
                    
@@ -491,11 +474,7 @@ const FileDetails = () => {
                                     </div>
                                 ) : (
                                     filteredUsers.map(u => (
-                                      <div 
-                                        key={u.id} 
-                                        onClick={() => { setSelectedRecipient(u); setSearchTerm(''); setIsDropdownOpen(false); }} 
-                                        className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-none flex items-center justify-between group transition-colors"
-                                      >
+                                      <div key={u.id} onClick={() => { setSelectedRecipient(u); setSearchTerm(''); setIsDropdownOpen(false); }} className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-none flex items-center justify-between group transition-colors">
                                         <div>
                                             <p className="text-sm font-bold text-slate-800">{u.full_name}</p>
                                             <p className="text-xs text-slate-500 mt-0.5">{getDesignationName(u.designation)}</p>
@@ -520,18 +499,9 @@ const FileDetails = () => {
                       <div className="shrink-0 px-5 py-3 border-t border-slate-100 flex flex-wrap gap-3 bg-slate-50/50 overflow-y-auto max-h-24">
                         {attachments.map((file, idx) => (
                           <div key={idx} className="relative group flex flex-col w-24 rounded-lg overflow-hidden shadow-sm border border-slate-200 bg-white">
-                             <button 
-                               onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                               className="absolute top-1 right-1 z-10 bg-white/90 text-slate-500 hover:text-red-500 hover:bg-red-50 p-1 rounded-full border border-slate-100"
-                             >
-                               <X size={10} />
-                             </button>
-                             <div className="h-10 bg-gradient-to-br from-slate-50 to-slate-100 border-b flex items-center justify-center p-1">
-                                 <Paperclip size={12} className="text-slate-400"/>
-                             </div>
-                             <div className="p-1.5 bg-white">
-                                <p className="text-[9px] font-bold text-slate-800 truncate">{file.name}</p>
-                             </div>
+                             <button onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))} className="absolute top-1 right-1 z-10 bg-white/90 text-slate-500 hover:text-red-500 hover:bg-red-50 p-1 rounded-full border border-slate-100"><X size={10} /></button>
+                             <div className="h-10 bg-gradient-to-br from-slate-50 to-slate-100 border-b flex items-center justify-center p-1"><Paperclip size={12} className="text-slate-400"/></div>
+                             <div className="p-1.5 bg-white"><p className="text-[9px] font-bold text-slate-800 truncate">{file.name}</p></div>
                           </div>
                         ))}
                       </div>
@@ -539,55 +509,28 @@ const FileDetails = () => {
 
                    <div className="shrink-0 flex justify-between items-center px-5 py-3 bg-white border-t border-slate-100 rounded-b-2xl">
                       <div className="flex items-center gap-3">
-                        <button 
-                          onClick={openForwardConfirmation}
-                          disabled={isSubmitting || !selectedRecipient}
-                          className="w-40 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg shadow-teal-200 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:active:scale-100"
-                        >
+                        <button onClick={openForwardConfirmation} disabled={isSubmitting || !selectedRecipient} className="w-40 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg shadow-teal-200 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50">
                           Send File
                         </button>
                         
                         <label className="p-2 text-slate-500 hover:bg-slate-100 rounded-full cursor-pointer transition-colors" title="Attach files">
                           <Paperclip size={18} />
-                          <input 
-                            type="file" 
-                            accept="application/pdf" 
-                            multiple 
-                            className="hidden" 
-                            onChange={e => {
+                          <input type="file" accept="application/pdf" multiple className="hidden" onChange={e => {
                               if (!e.target.files?.length) return;
-
                               const newFiles = Array.from(e.target.files);
-                              
-                              // 1. Filter out files larger than 10MB
                               const validFiles = newFiles.filter(file => file.size <= 10 * 1024 * 1024); 
-                              
-                              if (newFiles.length !== validFiles.length) {
-                                  toast.error("Some files exceed the 10MB limit and were skipped.");
-                              }
-                              
-                              // 2. Enforce the maximum of 10 attachments total
+                              if (newFiles.length !== validFiles.length) toast.error("Some files exceed the 10MB limit and were skipped.");
                               setAttachments(prev => {
                                   const combined = [...prev, ...validFiles];
-                                  if (combined.length > 10) {
-                                      toast.error("Maximum 10 attachments allowed.");
-                                      return combined.slice(0, 10); 
-                                  }
+                                  if (combined.length > 10) { toast.error("Maximum 10 attachments allowed."); return combined.slice(0, 10); }
                                   return combined;
                               });
-
-                              // 3. Clear the input so the user can select the exact same file again if they delete it
                               e.target.value = null;
-                            }} 
-                          />
+                            }} />
                         </label>
                       </div>
 
-                      <button 
-                         onClick={() => {setRemarks(''); setAttachments([]); setSelectedRecipient(null);}}
-                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                         title="Discard Draft"
-                      >
+                      <button onClick={() => {setRemarks(''); setAttachments([]); setSelectedRecipient(null);}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Discard Draft">
                          <Trash2 size={18} />
                       </button>
                    </div>
@@ -602,20 +545,15 @@ const FileDetails = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4 animate-in fade-in duration-200 print:hidden">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-slate-50 p-6 text-center border-b border-slate-100">
-              <div className="w-16 h-16 bg-white border border-slate-200 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                <Send size={24} className="ml-1" />
-              </div>
+              <div className="w-16 h-16 bg-white border border-slate-200 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm"><Send size={24} className="ml-1" /></div>
               <h3 className="text-xl font-extrabold text-slate-800">Confirm Forward</h3>
               <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-                Forwarding file to <br/>
-                <span className="font-bold text-slate-800 text-base">{selectedRecipient?.full_name}</span>
+                Forwarding file to <br/><span className="font-bold text-slate-800 text-base">{selectedRecipient?.full_name}</span>
                 {attachments.length > 0 && <><br/><span className="text-blue-600 font-medium">({attachments.length} attachment{attachments.length > 1 ? 's' : ''} included)</span></>}
               </p>
             </div>
             <div className="p-8">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
-                Enter Security PIN
-              </label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">Enter Security PIN</label>
               <input type="password" maxLength={4} value={pin} onChange={e => setPin(e.target.value)} className="w-full text-center text-4xl tracking-[0.5em] p-4 bg-white border-2 border-slate-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none font-black text-slate-800 shadow-inner" placeholder="••••" autoFocus />
             </div>
             <div className="flex gap-3 p-6 pt-0">
