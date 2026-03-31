@@ -60,7 +60,8 @@ const CreateUser = () => {
      
       reset();
     } catch (e) { 
-      toast.error(e.response?.data?.message || 'Registration failed');
+      const errorMessage = e.response?.data?.error || e.response?.data?.message || 'Registration failed';
+      toast.error(errorMessage);
     }
   };
 

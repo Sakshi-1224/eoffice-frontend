@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { endpoints } from "../../api/axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import { KeyRound, Loader2, Lock } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -11,18 +11,23 @@ const SetPin = () => {
     formState: { errors, isSubmitting },
   } = useForm();
   const navigate = useNavigate();
+  const location = useLocation();
   const { updateUser } = useAuth(); // 2. Get the helper
   const onSubmit = async (data) => {
-    try {
-      // Matches Backend Schema: { "password": "string", "newPin": "\\dddd" }
-      await endpoints.auth.setPin({
+   try {
+    const payload = {
         password: data.password,
-        newPin: data.pin,
-      });
-      updateUser({ isPinSet: true });
-      toast.success("Security PIN set successfully!");
-      navigate("/files/created");
-    } catch (error) {
+        newPin: String(data.pin), // Use newPin here, and ensure it's a string
+      };
+
+      await endpoints.auth.setPin(payload);
+       updateUser({ isPinSet: true });
+    toast.success("PIN set successfully!");
+
+    // Navigate back to the file or dashboard
+    const returnUrl = location.state?.returnUrl || '/dashboard';
+    navigate(returnUrl);
+  } catch (error) {
       console.error(error);
       // Handles 401 (Invalid Password) or 400 (Same PIN) errors automatically
       toast.error(error.response?.data?.message || "Failed to set PIN");

@@ -132,6 +132,12 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
   const openForwardConfirmation = () => {
     if (!selectedRecipient) return toast.error("Please select a recipient");
     if (!remarks.trim()) return toast.error("Please enter forwarding remarks");
+    if (!user.isPinSet) {
+      toast.error("You must set your security PIN before sending files.");
+      // Optional: Pass the return URL so the Set Pin page can redirect back here
+      navigate('/auth/set-pin', { state: { returnUrl: `/files/${id}` } }); 
+      return;
+    }
     setIsForwardModalOpen(true);
     setPin(''); 
   };
