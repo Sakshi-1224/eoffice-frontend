@@ -16,19 +16,17 @@ const Login = () => {
 
   const onSubmit = async (data) => {
     try {
-      // Direct login attempt
       const success = await login(data);
       if (success) {
         navigate('/files/inbox');
       } else {
-        // If login returns false (handled by context mostly, but for safety)
         setError('root', { 
           type: 'manual', 
           message: 'Invalid credentials. Please check your details.' 
         });
       }
     } catch (error) {
-      // Catch backend errors (401 Unauthorized)
+    
       setError('root', { 
         type: 'manual', 
         message: error.response?.data?.message || 'Invalid Login ID or Password' 

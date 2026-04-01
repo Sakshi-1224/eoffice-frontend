@@ -1,20 +1,18 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { Loader2 } from 'lucide-react'; // Imported for the fallback loader
+import { Loader2 } from 'lucide-react'; 
 
-// Core/Shell components stay statically imported because they are needed immediately
+
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 
-// --------------------------------------------------------
-// Pages - Lazy Loaded (Code Splitting applied)
-// --------------------------------------------------------
+
 const Login = lazy(() => import('./pages/Auth/Login'));
 const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'));
 const SetPin = lazy(() => import('./pages/Auth/SetPin'));
 const ChangePassword = lazy(() => import('./pages/Auth/ChangePassword'));
-// const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
+
 
 const Inbox = lazy(() => import('./pages/Files/Inbox'));
 const Outbox = lazy(() => import('./pages/Files/Outbox'));
@@ -29,9 +27,7 @@ const CreateUser = lazy(() => import('./pages/Users/CreateUser'));
 const EditUser = lazy(() => import('./pages/Users/EditUser')); 
 
 
-// --------------------------------------------------------
-// Components
-// --------------------------------------------------------
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -42,7 +38,7 @@ const ProtectedRoute = ({ children }) => {
   return user ? children : <Navigate to="/login" />;
 };
 
-// Fallback UI to show while the requested page chunk is downloading
+
 const LoadingFallback = () => (
   <div className="h-[80vh] flex items-center justify-center text-teal-600">
     <Loader2 className="animate-spin" size={40} />
@@ -55,7 +51,7 @@ function App() {
       <AuthProvider>
         <Toaster position="top-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
         
-        {/* Suspense boundary catches any lazy-loaded component while it fetches */}
+      
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -64,7 +60,7 @@ function App() {
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route path="auth/change-password" element={<ChangePassword />}/>
               
-              {/* Nested Routes */}
+              
               <Route path="auth/set-pin" element={<SetPin />} />
               <Route path="files/inbox" element={<Inbox />} />
               <Route path="files/outbox" element={<Outbox />} />

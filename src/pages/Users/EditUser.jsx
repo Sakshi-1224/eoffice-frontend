@@ -41,7 +41,6 @@ const EditUser = () => {
     }
   });
 
-  // 4. When userToEdit finishes loading, populate the form!
   useEffect(() => {
     if (userToEdit) {
       setValue('fullName', userToEdit.full_name);
@@ -113,7 +112,7 @@ const EditUser = () => {
           <input {...register("email")} className="w-full border p-3 rounded-lg" />
         </div>
 
-        {/* 🟢 4. Dynamic System Role Dropdown */}
+       
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">System Role</label>
           <select 

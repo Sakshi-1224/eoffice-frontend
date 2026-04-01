@@ -5,48 +5,43 @@ import {
   LayoutDashboard, Inbox, Send, Search, FilePlus, UserPlus, KeyRound, LogOut, Lock , Users, PenTool
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useQueryClient } from '@tanstack/react-query'; // Added useQueryClient
-import { io } from 'socket.io-client'; // Added Socket.IO
-import toast from 'react-hot-toast'; // Added toast for notifications
+import { useQueryClient } from '@tanstack/react-query'; 
+import { io } from 'socket.io-client'; 
+import toast from 'react-hot-toast'; 
 const Layout = () => {
 
   const { user, logout } = useAuth();
   const location = useLocation();
 
-  const queryClient = useQueryClient(); // Initialize QueryClient
+  const queryClient = useQueryClient(); 
 
-  // --- NEW: Socket.IO Integration ---
   useEffect(() => {
-    // Only connect if the user is authenticated
+    
     if (!user) return;
 
-    // Remove '/api/v1' to get the base server URL for Socket.IO
     const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:5000';
     
-    // Connect to Socket.IO
+    
     const socket = io(baseUrl, {
-      withCredentials: true, // Essential since your backend uses HTTP-only cookies
-      query: { userId: user.id || user._id } // Pass user ID to backend to join user_${receiverId} room
+      withCredentials: true, 
+      query: { userId: user.id || user._id } 
     });
 
     socket.on('connect', () => {
       console.log('Connected to real-time notification service');
     });
 
-    // Listen for the event emitted by workflow.service.js
+  
     socket.on('new_file_received', (data) => {
-      // 1. Show the notification to the user
+      
       toast.success(
         `New File Received!\nFile No: ${data?.fileNumber || 'Check your inbox'}`, 
         { duration: 5000 }
       );
       
-      // 2. Silently background-refresh the Inbox cache
-      // This makes the new file appear instantly without refreshing the page
       queryClient.invalidateQueries({ queryKey: ['inboxFiles'] });
     });
 
-    // Cleanup connection when the user logs out or leaves the system
     return () => {
       socket.disconnect();
     };
@@ -72,7 +67,6 @@ const Layout = () => {
   navItems.push({ label: 'Set PIN', path: '/auth/set-pin', icon: KeyRound });
 
   return (
-    // 🟢 1. WRAPPER: Added print:bg-white and print:h-auto
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 print:bg-white print:min-h-0 print:h-auto print:block">
       
       {/* 🟢 2. SIDEBAR: Added print:hidden to completely remove it when printing */}
@@ -125,7 +119,6 @@ const Layout = () => {
         </div>
       </aside>
 
-      {/* 🟢 3. MAIN CONTENT: Added print:ml-0 (removes sidebar gap), print:p-0, print:h-auto, print:overflow-visible */}
       <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen print:ml-0 print:p-0 print:h-auto print:overflow-visible print:block">
         <Outlet />
       </main>

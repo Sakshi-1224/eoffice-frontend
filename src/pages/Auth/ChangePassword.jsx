@@ -10,7 +10,7 @@ const ChangePassword = () => {
 
   const newPassword = watch('newPassword');
   
-  // Strong Password Regex
+
   const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
   const onSubmit = async (data) => {
@@ -32,7 +32,7 @@ const ChangePassword = () => {
 
   return (
     <div className="max-w-md mx-auto mt-10 bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in-up">
-      {/* ... Header remains same ... */}
+     
       <div className="flex items-center gap-4 border-b border-slate-100 pb-6 mb-6">
         <div className="p-3 bg-teal-50 rounded-xl text-teal-600 border border-teal-100">
           <ShieldCheck size={24} />

@@ -5,7 +5,7 @@ import { UserCog, Loader2, Users } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 const ManageUsers = () => {
-  //used tanstack query to fetch users
+
  const { data: users = [], isLoading } = useQuery({
     queryKey: ['allUsers'],
     queryFn: async () => {

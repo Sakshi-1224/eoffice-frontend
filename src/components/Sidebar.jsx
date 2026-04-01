@@ -11,7 +11,7 @@ const Sidebar = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  // 🟢 HELPER: Check Roles
+
   const isStaff = user?.systemRole === 'STAFF';
   const isAdmin = user?.systemRole === 'ADMIN';
   const isBoardMember = user?.systemRole === 'BOARD_MEMBER';
@@ -28,10 +28,7 @@ const canCreateFiles = isStaff || isAdmin || isBoardMember;
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
     
-        {/* <Link to="/dashboard" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive('/dashboard') ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'hover:bg-slate-800 hover:text-white'}`}>
-          <LayoutDashboard size={20} />
-          <span className="font-medium">Dashboard</span>
-        </Link> */}
+       
 
        {/* 🟢 UPDATE: Show 'Created Files' to Board Members too */}
         {canCreateFiles && (
@@ -64,7 +61,7 @@ const canCreateFiles = isStaff || isAdmin || isBoardMember;
           <span className="font-medium">Change Password</span>
         </Link>
 
-       {/* 🟢 UPDATE: Show 'Initiate File' to Board Members too */}
+     
         {canCreateFiles && (
           <Link to="/files/create" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all mt-4 ${isActive('/files/create') ? 'bg-teal-600 text-white shadow-lg' : 'text-teal-400 hover:bg-slate-800 hover:text-teal-300'}`}>
             <FilePlus size={20} />

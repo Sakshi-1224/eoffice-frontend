@@ -8,9 +8,9 @@ import { useQuery } from '@tanstack/react-query';
 const CreatedFiles = () => {
 
   const navigate = useNavigate();
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth(); 
 
-  // 2. THE TANSTACK WAY
+
   const { data: files = [], isLoading } = useQuery({
     queryKey: ['createdFiles'],
     queryFn: async () => {

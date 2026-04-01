@@ -9,18 +9,16 @@ const CreateFile = () => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
   const navigate = useNavigate();
 
-  // 🟢 NEW: Fetch constants from backend just like in CreateUser.jsx
   const { data: constants, isLoading: isConstantsLoading } = useQuery({
     queryKey: ['appConstants'],
     queryFn: async () => {
       const response = await endpoints.common.constants();
       return response.data.data;
     },
-    staleTime: 1000 * 60 * 60 * 24, // Cache for 24 hours since constants rarely change
+    staleTime: 1000 * 60 * 60 * 24, 
   });
 
   const onSubmit = async (data) => {
-    // 🟢 FIX: Submit Standard JSON Payload
     const payload = {
       subject: data.subject,
       priority: data.priority,
@@ -73,16 +71,16 @@ const CreateFile = () => {
               className="w-full border border-slate-300 rounded-lg p-3 bg-white outline-none disabled:bg-slate-50"
               disabled={isConstantsLoading}
             >
-              {/* 🟢 OPTIMIZED: Dynamically map priorities from backend */}
+             
               {constants?.PRIORITY ? (
                 Object.values(constants.PRIORITY).map((priorityValue) => (
                   <option key={priorityValue} value={priorityValue}>
-                    {/* Formats "HIGH" to "High", "URGENT" to "Urgent" */}
+                 
                     {priorityValue.charAt(0).toUpperCase() + priorityValue.slice(1).toLowerCase()}
                   </option>
                 ))
               ) : (
-                // Fallback options just in case the API is temporarily slow
+              
                 <>
                   <option value="LOW">Low</option>
                   <option value="MEDIUM">Medium</option>
@@ -92,7 +90,7 @@ const CreateFile = () => {
             </select>
         </div>
 
-        {/* 🟢 FIX: Removed description, file type dropdown, PUC dropzone, and attachment dropzones */}
+       
 
         <div className="pt-4 flex justify-end">
           <button

@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, Loader2, Send, ArrowRight, MessageSquare } from 'lucide-react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 const Outbox = () => {
-   // 🟢 Added
   const navigate = useNavigate();
 const { 
     data, 
@@ -21,7 +20,7 @@ const {
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
   });
 
-  // Flatten pages array
+
   const files = data?.pages.flatMap(page => page.data) || [];
 
   if (isLoading) return (
@@ -62,7 +61,7 @@ const {
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Subject</th>
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Currently With</th>
                   
-                  {/* 🟢 REPLACED STATUS WITH REMARK */}
+                 
                   <th className="p-4 bg-teal-600 border-r border-teal-500/30">Last Remark</th>
                   
                   <th className="p-4 bg-teal-600 text-center rounded-tr-lg">View</th>
@@ -92,7 +91,7 @@ const {
                       </div>
                     </td>
 
-                    {/* 🟢 SHOW REMARK INSTEAD OF STATUS */}
+                    
                     <td className="p-4">
                       <div className="flex items-start gap-2 max-w-[250px]">
                         <MessageSquare size={14} className="text-slate-400 mt-1 shrink-0" />
@@ -121,7 +120,7 @@ const {
             </table>
           </div>
         )}
-         {/* 🟢 NEW: Load More Button */}
+         
        {hasNextPage && (
           <div className="p-4 border-t border-slate-100 flex justify-center bg-slate-50">
             <button

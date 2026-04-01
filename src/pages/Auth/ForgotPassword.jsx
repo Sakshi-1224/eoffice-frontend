@@ -12,11 +12,11 @@ const ForgotPassword = () => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
   const navigate = useNavigate();
 
-  // STEP 1: Request OTP
+  
   const handleRequestOTP = async (data) => {
     try {
       await endpoints.auth.forgotPassword({ phoneNumber: data.phoneNumber });
-      setPhoneNumber(data.phoneNumber); // Save for the next step
+      setPhoneNumber(data.phoneNumber); 
       setStep(2);
       toast.success('OTP sent to your registered phone number and email.');
     } catch (error) {
@@ -24,11 +24,11 @@ const ForgotPassword = () => {
     }
   };
 
-  // STEP 2: Verify OTP and Reset
+  
   const handleResetPassword = async (data) => {
     try {
       await endpoints.auth.resetPassword({
-        phoneNumber: phoneNumber, // Taken from state
+        phoneNumber: phoneNumber, 
         otp: data.otp,
         newPassword: data.newPassword
       });
@@ -66,7 +66,7 @@ const ForgotPassword = () => {
         </p>
 
         {step === 1 ? (
-          /* STEP 1 FORM */
+          
           <form onSubmit={handleSubmit(handleRequestOTP)} className="space-y-6">
             <div>
               <label className="block text-xs font-medium text-white mb-1.5 ml-1 tracking-wide">PHONE NUMBER</label>
@@ -89,7 +89,7 @@ const ForgotPassword = () => {
             </button>
           </form>
         ) : (
-          /* STEP 2 FORM */
+         
           <form onSubmit={handleSubmit(handleResetPassword)} className="space-y-5">
             <input type="text" name="fake-username" style={{ display: 'none' }} autoComplete="username" />
             <input type="password" name="fake-password" style={{ display: 'none' }} autoComplete="current-password" />

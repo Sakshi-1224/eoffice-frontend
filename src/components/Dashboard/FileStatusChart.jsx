@@ -2,15 +2,14 @@ import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const FileStatusChart = ({ stats }) => {
-  // 1. Transform your stats object into an array for the chart
   const data = [
-    { name: 'Pending', value: stats?.pending || 0, color: '#f59e0b' }, // Amber (Warning)
-    { name: 'Created', value: stats?.created || 0, color: '#0d9488' }, // Teal (Primary)
-    { name: 'Approved', value: stats?.approved || 0, color: '#10b981' }, // Emerald (Success)
-    { name: 'Rejected', value: stats?.rejected || 0, color: '#f43f5e' }, // Rose (Danger)
+    { name: 'Pending', value: stats?.pending || 0, color: '#f59e0b' }, 
+    { name: 'Created', value: stats?.created || 0, color: '#0d9488' }, 
+    { name: 'Approved', value: stats?.approved || 0, color: '#10b981' }, 
+    { name: 'Rejected', value: stats?.rejected || 0, color: '#f43f5e' }, 
   ];
 
-  // Filter out zero values so the chart looks clean
+
   const activeData = data.filter(item => item.value > 0);
 
   if (activeData.length === 0) {
@@ -21,7 +20,6 @@ const FileStatusChart = ({ stats }) => {
     );
   }
 
-  // Custom Tooltip Design
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
@@ -43,7 +41,7 @@ const FileStatusChart = ({ stats }) => {
           data={activeData}
           cx="50%"
           cy="50%"
-          innerRadius={60} // Makes it a Doughnut Chart
+          innerRadius={60} 
           outerRadius={80}
           paddingAngle={5}
           dataKey="value"

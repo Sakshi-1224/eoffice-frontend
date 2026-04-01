@@ -51,7 +51,6 @@ export const endpoints = {
     createDesignation: (data) => api.post('/users/designations', data),
   },
   files: {
-    // 🟢 FIX: Send standard JSON payload instead of multipart/form-data
     create: (data) => api.post('/files', data),
 
     drafts: (limit = 10, cursor = null) => 

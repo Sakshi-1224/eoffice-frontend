@@ -12,24 +12,22 @@ const SetPin = () => {
   } = useForm();
   const navigate = useNavigate();
   const location = useLocation();
-  const { updateUser } = useAuth(); // 2. Get the helper
+  const { updateUser } = useAuth(); 
   const onSubmit = async (data) => {
    try {
     const payload = {
         password: data.password,
-        newPin: String(data.pin), // Use newPin here, and ensure it's a string
+        newPin: String(data.pin), 
       };
 
       await endpoints.auth.setPin(payload);
        updateUser({ isPinSet: true });
     toast.success("PIN set successfully!");
 
-    // Navigate back to the file or dashboard
     const returnUrl = location.state?.returnUrl || '/dashboard';
     navigate(returnUrl);
   } catch (error) {
       console.error(error);
-      // Handles 401 (Invalid Password) or 400 (Same PIN) errors automatically
       toast.error(error.response?.data?.message || "Failed to set PIN");
     }
   };
@@ -47,7 +45,7 @@ const SetPin = () => {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* 1. Password Verification Field (Added) */}
+       
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">
             Current Password
@@ -72,7 +70,7 @@ const SetPin = () => {
           )}
         </div>
 
-        {/* 2. PIN Field */}
+        
         <div>
           <label className="block text-sm font-bold text-slate-700 mb-2 text-center uppercase tracking-wider">
             New 4-Digit PIN

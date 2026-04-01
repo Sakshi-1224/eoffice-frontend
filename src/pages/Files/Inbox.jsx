@@ -5,10 +5,6 @@ import { useAuth } from '../../context/AuthContext';
 import { Eye, Loader2, Inbox as InboxIcon, User } from 'lucide-react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 const Inbox = () => {
-  // const [files, setFiles] = useState([]);
-  // const [loading, setLoading] = useState(true);
-  // const [loadingMore, setLoadingMore] = useState(false); // New state for button loader
-  // const [nextCursor, setNextCursor] = useState(null);    // New state for cursor
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -27,7 +23,6 @@ const Inbox = () => {
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
   });
 
-  // 3. Flatten the pages array provided by TanStack Query and filter drafts
   const files = data?.pages.flatMap(page => 
     page.data.filter(f => f.status !== 'DRAFT')
   ) || [];
@@ -75,7 +70,7 @@ const Inbox = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {files.map((file) => {
-                  // 🟢 LOGIC: Use lastSender from backend (Forwarder), fallback to Creator
+                  
                   const senderName = file.lastSender || file.createdBy || 'Unknown';
 
                   return (
@@ -109,7 +104,7 @@ const Inbox = () => {
             </table>
           </div>
         )}
-        {/* 🟢 NEW: Load More Button */}
+      
       {hasNextPage && (
           <div className="p-4 bg-teal-600 text-white border-t border-slate-100 flex justify-center bg-slate-50">
             <button

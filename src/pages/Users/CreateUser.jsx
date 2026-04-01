@@ -15,10 +15,9 @@ const CreateUser = () => {
       const res = await endpoints.users.getDepartments();
       return res.data.data;
     },
-    staleTime: 1000 * 60 * 60 * 24, // 24 hours in milliseconds
+    staleTime: 1000 * 60 * 60 * 24, 
   });
 
-  // 3. Fetch Designations (Cached for 24 hours)
   const { data: designations = [] } = useQuery({
     queryKey: ['designations'],
     queryFn: async () => {
@@ -28,7 +27,7 @@ const CreateUser = () => {
     staleTime: 1000 * 60 * 60 * 24, 
   });
 
-  // 4. Fetch Allowed Roles (Cached for 24 hours)
+ 
   const { data: allowedRoles = [] } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
@@ -50,7 +49,6 @@ const CreateUser = () => {
       
       if (data.email) formData.append('email', data.email);
       
-      // Append the signature file if the admin selected one
       if (data.signature && data.signature.length > 0) {
         formData.append('signature', data.signature[0]);
       }
@@ -79,7 +77,6 @@ const CreateUser = () => {
       
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* ... (Full Name, Phone, Password, Email inputs remain unchanged) ... */}
         
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
@@ -138,7 +135,7 @@ const CreateUser = () => {
            {errors.email && <span className="text-xs text-red-500 mt-1">{errors.email.message}</span>}
         </div>
 
-        {/* 🟢 UPDATE: Dynamic System Role Dropdown */}
+       
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">System Role</label>
           <select 
@@ -148,7 +145,7 @@ const CreateUser = () => {
             <option value="">Select Role</option>
             {allowedRoles.map((role) => (
                 <option key={role} value={role}>
-                    {role.replace('_', ' ')} {/* Formats BOARD_MEMBER to BOARD MEMBER */}
+                    {role.replace('_', ' ')} 
                 </option>
             ))}
           </select>

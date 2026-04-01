@@ -15,14 +15,13 @@ const OutboxFileDetails = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // State for dynamic PDF Viewer
   const [selectedPdfUrl, setSelectedPdfUrl] = useState(null);
   const [selectedPdfName, setSelectedPdfName] = useState('');
 const [activeMessageIndex, setActiveMessageIndex] = useState(null);
-  const parentRef = useRef(null); // Reference for the Virtualizer
-  const hasScrolledToBottom = useRef(false); // Tracks initial load scroll
+  const parentRef = useRef(null); 
+  const hasScrolledToBottom = useRef(false); 
 
-  // 1. Fetch data (Backend is sending newest first)
+ 
   const { 
     data, 
     fetchNextPage, 
@@ -41,12 +40,10 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
 
   const file = data?.pages[0]?.data?.fileInfo || {};
 
-  // 2. Flatten History (Older pages pushed to the TOP of the array)
   const displayedHistory = data?.pages.reduce((acc, page) => {
     return [...(page.data?.history || []), ...acc];
   }, []) || [];
 
-  // Check if file was returned to user's Inbox dynamically
   useEffect(() => {
     if (file?.currentHolder && user) {
       if (file.currentHolder === user.fullName || file.currentHolder === user.full_name) {
@@ -56,14 +53,14 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
     }
   }, [file.currentHolder, user, navigate, id]);
 
-  // Clean up blob URL
+ 
   useEffect(() => {
     return () => {
       if (selectedPdfUrl) window.URL.revokeObjectURL(selectedPdfUrl);
     };
   }, [selectedPdfUrl]);
 
-  // 3. Setup Virtualizer
+
   const rowVirtualizer = useVirtualizer({
     count: hasNextPage ? displayedHistory.length + 1 : displayedHistory.length,
     getScrollElement: () => parentRef.current,
@@ -73,7 +70,7 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 
-  // 4. Auto-Scroll to Bottom on INITIAL load only
+
   useEffect(() => {
     if (displayedHistory.length > 0 && !hasScrolledToBottom.current) {
       setTimeout(() => {
@@ -83,17 +80,17 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
     }
   }, [displayedHistory.length, rowVirtualizer]);
 
-  // 🟢 RE-ANCHOR TO THE EXACT MESSAGE WHEN PDF OPENS/CLOSES
+
   useEffect(() => {
     if (activeMessageIndex !== null) {
       setTimeout(() => {
-        // align: 'center' keeps the clicked message perfectly in the middle of the screen
+       
         rowVirtualizer.scrollToIndex(activeMessageIndex, { align: 'center', behavior: 'auto' });
-      }, 300); // 300ms gives the CSS flexbox enough time to finish resizing
+      }, 300); 
     }
   }, [selectedPdfUrl, activeMessageIndex, rowVirtualizer]);
 
-  // 5. TRIGGER FETCH ON SCROLL UP
+ 
   useEffect(() => {
     const firstVisibleItem = virtualItems[0];
     if (!firstVisibleItem) return;
@@ -125,9 +122,7 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
         <ArrowLeft size={16} /> Back to Outbox
       </button>
 
-      {/* ==================================================== */}
-      {/* 🖨️ THE PRINT FIX: ABSOLUTE OVERLAY                     */}
-      {/* ==================================================== */}
+      
       <div className="hidden print:block print:absolute print:inset-0 print:w-full print:min-h-screen print:bg-white print:z-[99999] print:m-0 print:p-0">
         <table className="w-[75%] mx-auto border-collapse border-l-2 border-r-2 border-black bg-white text-black font-serif text-[11pt] leading-snug min-h-screen">
           <thead className="table-header-group">
@@ -181,14 +176,10 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
           </tbody>
         </table>
       </div>
-      {/* ==================================================== */}
-
-      {/* 🟢 print:hidden wrapped around the entire screen layout */}
+      
       <div className={`flex flex-col lg:flex-row gap-6 w-full print:hidden flex-1 overflow-hidden`}>
 
-        {/* ========================================== */}
-        {/* LEFT PANE: PDF VIEWER                      */}
-        {/* ========================================== */}
+      
         {selectedPdfUrl && (
           <div className="w-full lg:w-[60%] h-full bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
@@ -228,14 +219,12 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
           </div>
         )}
 
-        {/* ========================================== */}
-        {/* RIGHT PANE: MAIN UI / CHATS                */}
-        {/* ========================================== */}
+        
         <div className={`w-full flex flex-col transition-all duration-300 h-full ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-[calc(100vh-120px)]'}`}>
           
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full">
             
-            {/* SCREEN ONLY: Header / Subject Info */}
+            
             <div className="px-8 py-5 flex items-start justify-between border-b border-slate-200 bg-white shadow-sm shrink-0 z-10">
               <div className="w-full flex flex-col">
                 <h1 className="text-xl text-slate-900 font-bold tracking-tight flex items-center gap-3">
@@ -258,7 +247,7 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
               </div>
             </div>
 
-            {/* VIRTUALIZED VERTICAL THREAD LAYOUT */}
+           
             <div ref={parentRef} className={`p-6 bg-slate-50/50 flex flex-col ${selectedPdfUrl ? 'flex-1 overflow-y-auto' : 'flex-1 overflow-y-auto min-h-[400px]'}`} style={{ overflowAnchor: 'auto' }}>
               
               <div className="flex justify-between items-center mb-6 px-1 shrink-0">
@@ -268,10 +257,10 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
               <div className="w-full relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
                 {virtualItems.map((virtualItem) => {
                   
-                  // The Loader is now at the TOP (Index 0)
+                 
                   const isLoaderRow = hasNextPage && virtualItem.index === 0;
                   
-                  // Adjust index to map correctly to data
+                 
                   const dataIndex = hasNextPage ? virtualItem.index - 1 : virtualItem.index;
                   const msg = displayedHistory[dataIndex];
 

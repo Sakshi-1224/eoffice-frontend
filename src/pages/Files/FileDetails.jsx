@@ -31,10 +31,9 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
   const [composeHeight, setComposeHeight] = useState(260);
 
   const dropdownRef = useRef(null);
-  const parentRef = useRef(null); // Reference for the Virtualizer
-  const hasScrolledToBottom = useRef(false); // Tracks initial load scroll
+  const parentRef = useRef(null); 
+  const hasScrolledToBottom = useRef(false); 
 
-  // 1. Fetch data (Backend is sending newest first)
   const { 
     data, 
     fetchNextPage, 
@@ -61,7 +60,6 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
 
   const file = data?.pages[0]?.data?.fileInfo || {};
 
-  // 2. Flatten History (Older pages pushed to the TOP of the array)
   const displayedHistory = data?.pages.reduce((acc, page) => {
     return [...(page.data?.history || []), ...acc];
   }, []) || [];
@@ -76,7 +74,6 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 
-  // 4. Auto-Scroll to Bottom on INITIAL load only
   useEffect(() => {
     if (displayedHistory.length > 0 && !hasScrolledToBottom.current) {
       setTimeout(() => {
@@ -89,13 +86,13 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
   useEffect(() => {
     if (activeMessageIndex !== null) {
       setTimeout(() => {
-        // align: 'center' keeps the clicked message perfectly in the middle of the screen
+      
         rowVirtualizer.scrollToIndex(activeMessageIndex, { align: 'center', behavior: 'auto' });
-      }, 300); // 300ms gives the CSS flexbox enough time to finish resizing
+      }, 300); 
     }
   }, [selectedPdfUrl, activeMessageIndex, rowVirtualizer]);
  
-  // 5. TRIGGER FETCH ON SCROLL UP
+
   useEffect(() => {
     const firstVisibleItem = virtualItems[0];
     if (!firstVisibleItem) return;
@@ -134,7 +131,6 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
     if (!remarks.trim()) return toast.error("Please enter forwarding remarks");
     if (!user.isPinSet) {
       toast.error("You must set your security PIN before sending files.");
-      // Optional: Pass the return URL so the Set Pin page can redirect back here
       navigate('/auth/set-pin', { state: { returnUrl: `/files/${id}` } }); 
       return;
     }
@@ -208,9 +204,7 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
         <ArrowLeft size={16} /> Back
       </button>
 
-      {/* ==================================================== */}
-      {/* 🖨️ THE PRINT FIX: ABSOLUTE OVERLAY                     */}
-      {/* ==================================================== */}
+     
       <div className="hidden print:block print:absolute print:inset-0 print:w-full print:min-h-screen print:bg-white print:z-[99999] print:m-0 print:p-0">
         <table className="w-[75%] mx-auto border-collapse border-l-2 border-r-2 border-black bg-white text-black font-serif text-[11pt] leading-snug min-h-screen">
           <thead className="table-header-group">
@@ -264,12 +258,11 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
           </tbody>
         </table>
       </div>
-      {/* ==================================================== */}
+     
 
-     {/* 🟢 print:hidden ADDED TO WRAPPER SO DOM DOES NOT CONFLICT WITH PRINT OVERLAY */}
      <div className={`flex flex-col lg:flex-row gap-6 w-full print:hidden flex-1 overflow-hidden`}>
 
-        {/* 📄 PDF VIEWER */}
+       
         {selectedPdfUrl && (
           <div className="w-full lg:w-[60%] h-full bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
@@ -301,7 +294,7 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
           </div>
         )}
 
-        {/* 💬 RIGHT PANE: MAIN UI / CHATS */}
+       
         <div className={`w-full flex flex-col transition-all duration-300 ${selectedPdfUrl ? 'lg:w-[40%] h-full' : 'h-[calc(100vh-120px)]'}`}>
           
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative z-0 flex flex-col h-full">
@@ -329,10 +322,10 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
               <div className="w-full relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
                 {virtualItems.map((virtualItem) => {
                   
-                  // The Loader is now at the TOP (Index 0)
+                 
                   const isLoaderRow = hasNextPage && virtualItem.index === 0;
                   
-                  // Adjust index to map correctly to data
+                  
                   const dataIndex = hasNextPage ? virtualItem.index - 1 : virtualItem.index;
                   const msg = displayedHistory[dataIndex];
 
@@ -434,7 +427,6 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
               </div>
             </div>
 
-            {/* Draggable Resizer Line */}
             <div 
               onMouseDown={startResizing}
               onTouchStart={startResizing}
@@ -447,7 +439,6 @@ const [activeMessageIndex, setActiveMessageIndex] = useState(null);
               )}
             </div>
 
-            {/* Compose Area Dropdown */}
             <div className={`bg-slate-50/50 rounded-b-2xl shrink-0 flex flex-col relative z-30 ${composeHeight === 0 ? 'overflow-hidden' : 'overflow-visible'}`} style={{ height: composeHeight }}>
               <div className={`flex-1 flex flex-col h-full ${selectedPdfUrl ? 'px-6 pb-6 pt-3' : 'px-8 pb-8 pt-4'}`}>
                 <div className={`border border-slate-300 rounded-2xl shadow-lg transition-all bg-white flex flex-col h-full ${composeHeight === 0 ? 'overflow-hidden' : 'overflow-visible'}`}>

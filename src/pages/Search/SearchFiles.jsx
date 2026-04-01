@@ -15,7 +15,6 @@ const SearchFiles = () => {
     setLoading(true);
     setHasSearched(true);
     try {
-      // Remove empty fields to keep URL clean
       const cleanData = Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== ""));
       const query = new URLSearchParams(cleanData).toString();
       
@@ -36,11 +35,9 @@ const SearchFiles = () => {
         <p className="text-slate-500 text-sm mt-1">Locate documents using precise filters</p>
       </div>
 
-      {/* Modern Search Card */}
       <div className="bg-white p-8 rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100">
         <form onSubmit={handleSubmit(onSearch)} className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          
-          {/* Main Keyword Input (Full Row on mobile, Half Row on Desktop) */}
+ 
           <div className="md:col-span-2">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1 tracking-wider">Keywords</label>
             <div className="relative group">
@@ -53,7 +50,6 @@ const SearchFiles = () => {
             </div>
           </div>
 
-          {/* 🟢 NEW: From Date */}
           <div className="md:col-span-1">
              <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1 tracking-wider flex items-center gap-1.5">
                <Calendar size={12} /> From Date
@@ -65,7 +61,7 @@ const SearchFiles = () => {
              />
           </div>
 
-          {/* 🟢 NEW: To Date */}
+        
           <div className="md:col-span-1">
              <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1 tracking-wider flex items-center gap-1.5">
                <Calendar size={12} /> To Date
@@ -78,8 +74,6 @@ const SearchFiles = () => {
           </div>
           
         
-
-          {/* Priority Filter */}
           <div className="md:col-span-1">
              <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1 tracking-wider">Priority</label>
              <select {...register('priority')} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none cursor-pointer text-slate-700 font-medium">
@@ -90,7 +84,6 @@ const SearchFiles = () => {
              </select>
           </div>
 
-          {/* Search Button (Spans 2 columns to balance grid) */}
           <div className="md:col-span-2 flex items-end mt-2">
             <button 
                 type="submit" 
@@ -103,7 +96,7 @@ const SearchFiles = () => {
         </form>
       </div>
 
-      {/* Results Section */}
+     
       {hasSearched && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           {results.length === 0 ? (

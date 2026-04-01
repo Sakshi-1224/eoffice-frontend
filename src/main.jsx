@@ -7,8 +7,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false, // Optional: prevents reload when you click browser window
-      retry: 1, // Retry failed requests once
+      refetchOnWindowFocus: false,
+      retry: 1, 
     },
   },
 });

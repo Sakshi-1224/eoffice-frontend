@@ -9,15 +9,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
     setLoading(false);
-    // 🟢 MULTI-TAB LOGOUT SYNC FIX
-    // If a user logs out in Tab A, 'user' is removed from localStorage.
-    // Tab B detects this storage change and instantly logs out.
     const handleStorageChange = (e) => {
       if (e.key === 'user' && e.newValue === null) {
         setUser(null);
@@ -52,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Backend logout failed", error);
     } finally {
-      // Clear local state (Triggers the cross-tab sync automatically!)
+      
       localStorage.removeItem('user');
       setUser(null);
       toast.success('Logged out successfully');
@@ -61,7 +57,7 @@ export const AuthProvider = ({ children }) => {
 const updateUser = (newUserData) => {
     setUser((prevUser) => {
       const updated = { ...prevUser, ...newUserData };
-      localStorage.setItem('user', JSON.stringify(updated)); // Persist to storage
+      localStorage.setItem('user', JSON.stringify(updated)); 
       return updated;
     });
   };
