@@ -12,10 +12,10 @@ const SearchFiles = () => {
   const [hasSearched, setHasSearched] = useState(false);
   
   // 1. Get the logged-in user from context
-  const { user } = useAuth(); 
+  const { user } = useAuth() ; 
 
   // Helper function to determine where the file should open
-  const getFileRoute = (file) => {
+  const getFileRoute = (file) =>  {
     // 1. Safely extract names to prevent undefined === undefined bugs
     const fileHolderName = file.currentHolder?.full_name || file.currentHolder?.fullName;
     const myName = user?.full_name || user?.fullName;
