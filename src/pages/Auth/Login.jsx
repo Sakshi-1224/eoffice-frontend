@@ -15,18 +15,12 @@ const Login = () => {
   const navigate = useNavigate();
 
   const onSubmit = async (data) => {
-    try {
-      const success = await login(data);
-      if (success) {
-        navigate('/files/inbox');
-      } else {
-        setError('root', { 
-          type: 'manual', 
-          message: 'Invalid credentials. Please check your details.' 
-        });
-      }
+   try {
+      // If login is successful, it resolves and navigates
+      await login(data);
+      navigate('/files/inbox');
     } catch (error) {
-    
+      // If login fails (401, 429 Rate Limit, etc.), it throws to here
       setError('root', { 
         type: 'manual', 
         message: error.response?.data?.message || 'Invalid Login ID or Password' 

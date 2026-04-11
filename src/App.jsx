@@ -25,7 +25,7 @@ const SearchFiles = lazy(() => import('./pages/Search/SearchFiles'));
 const ManageUsers = lazy(() => import('./pages/Users/ManageUsers')); 
 const CreateUser = lazy(() => import('./pages/Users/CreateUser'));
 const EditUser = lazy(() => import('./pages/Users/EditUser')); 
-
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 
 const ProtectedRoute = ({ children }) => {
@@ -58,6 +58,8 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} /> 
             
             <Route path ="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+
+            <Route index element={<Navigate to="/files/inbox" replace />} />
               <Route path="auth/change-password" element={<ChangePassword />}/>
               
               
@@ -73,6 +75,7 @@ function App() {
               <Route path="users" element={<ManageUsers />} />       
               <Route path="users/create" element={<CreateUser />} />
               <Route path="users/:id/edit" element={<EditUser />} />   
+              <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
         </Suspense>

@@ -24,7 +24,7 @@ const SetPin = () => {
        updateUser({ isPinSet: true });
     toast.success("PIN set successfully!");
 
-    const returnUrl = location.state?.returnUrl || '/dashboard';
+    const returnUrl = location.state?.returnUrl || '';
     navigate(returnUrl);
   } catch (error) {
       console.error(error);

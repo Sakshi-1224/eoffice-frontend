@@ -43,7 +43,7 @@ export const endpoints = {
    create: (data) => api.post('/users', data, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-    getAll: (query = '') => api.get(`/users${query}`),
+  getAll: (params) => api.get('/users', { params }),
     update: (id, data) => api.patch(`/users/${id}`, data),
     getDepartments: () => api.get('/users/departments'),
     getDesignations: () => api.get('/users/designations'),

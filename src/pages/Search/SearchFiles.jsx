@@ -1,15 +1,37 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { endpoints } from '../../api/axios';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Search as SearchIcon, Loader2, Eye, Filter, FileX, Calendar } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext'; 
 
 const SearchFiles = () => {
   const { register, handleSubmit } = useForm();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const navigate = useNavigate();
+  
+  // 1. Get the logged-in user from context
+  const { user } = useAuth(); 
+
+  // Helper function to determine where the file should open
+  const getFileRoute = (file) => {
+    // 1. Safely extract names to prevent undefined === undefined bugs
+    const fileHolderName = file.currentHolder?.full_name || file.currentHolder?.fullName;
+    const myName = user?.full_name || user?.fullName;
+
+    // 2. Check if the logged-in user is exactly the current holder
+    const isHolder = Boolean(fileHolderName && myName && fileHolderName === myName);
+
+    if (isHolder) {
+      // User has the file -> Route to standard File Details (Allows Remarks & Forwarding)
+      return `/files/${file.id}`; 
+    } else {
+      // User DOES NOT have the file -> Route to Outbox (Read-Only history)
+      // Notice the updated path below matches your App.jsx exactly!
+      return `/files/outbox/${file.id}`; 
+    }
+  };
 
   const onSearch = async (data) => {
     setLoading(true);
@@ -61,7 +83,6 @@ const SearchFiles = () => {
              />
           </div>
 
-        
           <div className="md:col-span-1">
              <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1 tracking-wider flex items-center gap-1.5">
                <Calendar size={12} /> To Date
@@ -73,7 +94,6 @@ const SearchFiles = () => {
              />
           </div>
           
-        
           <div className="md:col-span-1">
              <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1 tracking-wider">Priority</label>
              <select {...register('priority')} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none cursor-pointer text-slate-700 font-medium">
@@ -96,7 +116,6 @@ const SearchFiles = () => {
         </form>
       </div>
 
-     
       {hasSearched && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           {results.length === 0 ? (
@@ -119,7 +138,6 @@ const SearchFiles = () => {
                     <tr className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-50/50 border-b border-slate-200">
                       <th className="p-4 pl-6">File Number</th>
                       <th className="p-4">Subject</th>
-                     
                       <th className="p-4">Priority</th>
                       <th className="p-4 text-center">Status</th>
                       <th className="p-4 pr-6 text-right">Action</th>
@@ -143,12 +161,13 @@ const SearchFiles = () => {
                             <span className="text-xs font-bold text-slate-500">{file.status?.replace('_', ' ')}</span>
                         </td>
                         <td className="p-4 pr-6 text-right">
-                           <button 
-                             onClick={() => navigate(`/files/${file.id}`)}
-                             className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-all text-xs font-bold"
-                           >
-                             <Eye size={16} /> View
-                           </button>
+                          {/* 3. Use the helper function here */}
+                          <Link 
+                            to={getFileRoute(file)} 
+                            className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-all text-xs font-bold"
+                          >
+                            <Eye size={16} /> View
+                          </Link>
                         </td>
                       </tr>
                     ))}
